@@ -108,10 +108,14 @@ const createStudent = async (req, res, next) => {
     // ✅ Create unique verify link
     const verifyURL = `nfcverify://verify/${student.uid}`;
 
+    // ✅ Save verify URL in database
+    student.verifyURL = verifyURL;
+    await student.save();
+
     // ✅ Generate QR code (base64 image)
     const qrImage = await QRCode.toDataURL(verifyURL);
 
-    // ✅ Attach these to response
+    // ✅ Return response
     res.status(201).json({
       msg: "Student added successfully",
       student,
@@ -122,6 +126,7 @@ const createStudent = async (req, res, next) => {
     next(error);
   }
 };
+
 const bindNfcChip = async (req, res, next) => {
   try {
     const { roll, nfcUID } = req.body;
