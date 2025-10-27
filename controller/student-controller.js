@@ -135,31 +135,31 @@ const bindNfcChip = async (req, res, next) => {
       return res.status(400).json({ msg: "Roll number and NFC UID are required" });
     }
 
-    // ✅ Get the student first
+    // Find student
     const student = await Student.findOne({ roll });
     if (!student) {
       return res.status(404).json({ msg: "Student not found" });
     }
 
-    // ✅ Generate verifyURL using the existing UID
+    // ✅ Always regenerate verifyURL even if already exists
     const verifyURL = `nfcverify://verify/${student.uid}`;
 
-    // ✅ Use atomic MongoDB update (no .save() issues)
-    const updatedStudent = await Student.findOneAndUpdate(
-      { roll },
-      { $set: { nfcUID, verifyURL } },
-      { new: true } // return updated document
-    );
+    // ✅ Update both nfcUID and verifyURL
+    student.nfcUID = nfcUID;
+    student.verifyURL = verifyURL;
+
+    await student.save(); // Important: save to persist in MongoDB
 
     res.status(200).json({
-      msg: "✅ NFC chip successfully bound to student",
-      student: updatedStudent,
+      msg: "✅ NFC chip bound and verifyURL stored successfully",
+      student,
     });
   } catch (error) {
     console.error("❌ bindNfcChip error:", error);
     next(error);
   }
 };
+
 
 
 module.exports = { getStudents, createStudent,bindNfcChip };
