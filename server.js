@@ -12,7 +12,7 @@ const errorMiddleware = require("./middlewares/error_middleware");
 const corsOption = {
   origin: [
     "http://localhost:5173",
-    "https://degreeverificationusingnfc-production-2db1.up.railway.app/",
+    "https://degreeverificationusingnfc-production-2db1.up.railway.app",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"],
   credentials: true,
