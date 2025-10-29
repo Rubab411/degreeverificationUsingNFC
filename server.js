@@ -9,10 +9,13 @@ const connectDB = require('./utilities/db');
 const errorMiddleware = require("./middlewares/error_middleware");
 // tackle cors 
 const corsOption = {
-  origin:'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'], 
-
-  credentials : true,
+  origin: [
+    "http://localhost:5173",
+    "https://degreeverificationusingnfc-production-3b5b.up.railway.app",
+    "https://degreeverificationusingnfc.netlify.app", // if your frontend is deployed
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"],
+  credentials: true,
 };
 app.use(cors(corsOption));
 
