@@ -86,6 +86,7 @@
 const Student = require("../models/student_models");
 const QRCode = require("qrcode");
 
+// ✅ Get all students
 const getStudents = async (req, res, next) => {
   try {
     const students = await Student.find();
@@ -95,6 +96,7 @@ const getStudents = async (req, res, next) => {
   }
 };
 
+// ✅ Create new student
 const createStudent = async (req, res, next) => {
   try {
     const studentExist = await Student.findOne({ roll: req.body.roll });
@@ -102,20 +104,18 @@ const createStudent = async (req, res, next) => {
       return res.status(400).json({ msg: "Student with this roll number already exists" });
     }
 
-    // ✅ Create new student
     const student = await Student.create(req.body);
 
     // ✅ Create unique verify link
     const verifyURL = `nfcverify://verify/${student.uid}`;
 
-    // ✅ Save verify URL in database
+    // ✅ Save verify URL
     student.verifyURL = verifyURL;
     await student.save();
 
-    // ✅ Generate QR code (base64 image)
+    // ✅ Generate QR code
     const qrImage = await QRCode.toDataURL(verifyURL);
 
-    // ✅ Return response
     res.status(201).json({
       msg: "Student added successfully",
       student,
@@ -127,28 +127,24 @@ const createStudent = async (req, res, next) => {
   }
 };
 
+// ✅ Bind NFC Chip
 const bindNfcChip = async (req, res, next) => {
   try {
     const { roll, nfcUID } = req.body;
-
     if (!roll || !nfcUID) {
       return res.status(400).json({ msg: "Roll number and NFC UID are required" });
     }
 
-    // Find student
     const student = await Student.findOne({ roll });
     if (!student) {
       return res.status(404).json({ msg: "Student not found" });
     }
 
-    // ✅ Always regenerate verifyURL even if already exists
     const verifyURL = `nfcverify://verify/${student.uid}`;
-
-    // ✅ Update both nfcUID and verifyURL
     student.nfcUID = nfcUID;
     student.verifyURL = verifyURL;
 
-    await student.save(); // Important: save to persist in MongoDB
+    await student.save();
 
     res.status(200).json({
       msg: "✅ NFC chip bound and verifyURL stored successfully",
@@ -160,6 +156,42 @@ const bindNfcChip = async (req, res, next) => {
   }
 };
 
+// ✅ Update student
+const updateStudent = async (req, res, next) => {
+  try {
+    const { id } = req.params;
 
+    const updatedStudent = await Student.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updatedStudent) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
 
-module.exports = { getStudents, createStudent,bindNfcChip };
+    res.status(200).json({ msg: "Student updated successfully", updatedStudent });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ✅ Delete student
+const deleteStudent = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const deletedStudent = await Student.findByIdAndDelete(id);
+
+    if (!deletedStudent) {
+      return res.status(404).json({ msg: "Student not found" });
+    }
+
+    res.status(200).json({ msg: "Student deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { 
+  getStudents, 
+  createStudent, 
+  bindNfcChip, 
+  updateStudent, 
+  deleteStudent 
+};

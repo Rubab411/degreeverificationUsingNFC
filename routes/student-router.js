@@ -5,11 +5,13 @@ const {
   getStudents,
   createStudent,
   bindNfcChip,
+  updateStudent,
+  deleteStudent,
 } = require("../controller/student-controller");
 const Student = require("../models/student_models");
 
 // --------------------------------------------------
-// 🟩 Get All Students (for normal view or admin dashboard)
+// 🟩 Get All Students (Admin Dashboard / Normal View)
 router.get("/", getStudents);
 
 // --------------------------------------------------
@@ -19,6 +21,14 @@ router.post("/", createStudent);
 // --------------------------------------------------
 // 🟩 Bind NFC chip to a specific student (Admin action)
 router.post("/bind-nfc", bindNfcChip);
+
+// --------------------------------------------------
+// 🟩 Update Student by ID (Edit Option)
+router.put("/:id", updateStudent);
+
+// --------------------------------------------------
+// 🟩 Delete Student by ID
+router.delete("/:id", deleteStudent);
 
 // --------------------------------------------------
 // 🟩 Generate Degree (if needed)
@@ -35,7 +45,7 @@ router.post("/generate-degree", async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // Generate verify URL and QR code
+    // ✅ Generate verify URL and QR code
     const verifyURL = `nfcverify://verify/${student.uid}`;
     const qrImage = await QRCode.toDataURL(verifyURL);
 
@@ -56,7 +66,7 @@ router.post("/generate-degree", async (req, res) => {
 });
 
 // --------------------------------------------------
-// 🟩 Verify Student by UID (for NFC verification)
+// 🟩 Verify Student by UID (For NFC Verification)
 router.get("/verify", async (req, res) => {
   try {
     const uid = req.query.uid;
