@@ -7,11 +7,13 @@ const {
   bindNfcChip,
   updateStudent,
   deleteStudent,
+  sendOtp,
+  verifyOtp,
 } = require("../controller/student-controller");
 const Student = require("../models/student_models");
 
 // --------------------------------------------------
-// 🟩 Get All Students (Admin Dashboard / Normal View)
+// 🟩 Get All Students (Admin Dashboard)
 router.get("/", getStudents);
 
 // --------------------------------------------------
@@ -19,7 +21,7 @@ router.get("/", getStudents);
 router.post("/", createStudent);
 
 // --------------------------------------------------
-// 🟩 Bind NFC chip to a specific student (Admin action)
+// 🟩 Bind NFC chip to a specific student
 router.post("/bind-nfc", bindNfcChip);
 
 // --------------------------------------------------
@@ -31,26 +33,24 @@ router.put("/:id", updateStudent);
 router.delete("/:id", deleteStudent);
 
 // --------------------------------------------------
-// 🟩 Generate Degree (if needed)
+// 🟩 Generate Degree
 router.post("/generate-degree", async (req, res) => {
   try {
     const { uid, degreeTitle } = req.body;
-
-    if (!uid) {
-      return res.status(400).json({ message: "UID is missing in the request" });
-    }
+    if (!uid) return res.status(400).json({ message: "UID is missing" });
 
     const student = await Student.findOne({ uid });
-    if (!student) {
-      return res.status(404).json({ message: "Student not found" });
-    }
+    if (!student) return res.status(404).json({ message: "Student not found" });
 
-    // ✅ Generate verify URL and QR code
     const verifyURL = `nfcverify://verify/${student.uid}`;
     const qrImage = await QRCode.toDataURL(verifyURL);
 
     student.degreeTitle = degreeTitle;
     student.degreeIssued = true;
+    student.degreeStatus = "Generated";
+    student.degreeGeneratedDate = new Date();
+    student.verifyURL = verifyURL;
+
     await student.save();
 
     res.json({
@@ -78,5 +78,12 @@ router.get("/verify", async (req, res) => {
     res.status(500).send("Server error");
   }
 });
+
+// --------------------------------------------------
+// 🟩 Student Login via OTP
+router.post("/send-otp", sendOtp);
+
+// 🟩 Verify OTP and login student
+router.post("/verify-otp", verifyOtp);
 
 module.exports = router;
