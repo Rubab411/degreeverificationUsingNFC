@@ -73,7 +73,7 @@ const updateStudent = async (req, res, next) => {
     if (!updatedStudent) {
       return res.status(404).json({ msg: "Student not found" });
     }
-    res.status(200).json({ msg: "Student updated successfully", updatedStudent });
+    res.status(200).json({ msg: "Student updated successfully!", student: updatedStudent });
   } catch (error) {
     next(error);
   }
