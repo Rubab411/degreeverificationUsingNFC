@@ -111,8 +111,8 @@ const sendOtp = async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "your_email@gmail.com", // change
-        pass: "your_app_password", // use Gmail App Password
+        user: "verifiazapp@gmail.com", // change
+        pass: "ydzw xpgx noqd uwfz", // use Gmail App Password
       },
     });
 
