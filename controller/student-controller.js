@@ -1,6 +1,6 @@
 const Student = require("../models/student_models");
 const QRCode = require("qrcode");
-const axios = require("axios"); // ✅ Brevo API ke liye axios use hoga
+const nodemailer = require("nodemailer");
 
 // ✅ Get all students
 const getStudents = async (req, res, next) => {
@@ -93,7 +93,7 @@ const deleteStudent = async (req, res, next) => {
   }
 };
 
-// ✅ Send OTP via Brevo API (no SMTP)
+// ✅ Send OTP via SMTP (Brevo)
 const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
@@ -107,26 +107,28 @@ const sendOtp = async (req, res) => {
     student.otpExpiry = otpExpiry;
     await student.save();
 
-    // ✅ Send via Brevo HTTPS API
-    await axios.post(
-      "https://api.brevo.com/v3/smtp/email",
-      {
-        sender: { name: "NFC Verification System", email: "no-reply@yourdomain.com" },
-        to: [{ email }],
-        subject: "Student Login OTP",
-        textContent: `Your OTP for login is ${otp}. It will expire in 5 minutes.`,
+    // ✅ Create SMTP transporter (Brevo)
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: process.env.EMAIL_PORT,
+      secure: false, // Brevo uses STARTTLS (587)
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
-      {
-        headers: {
-          "api-key": process.env.BREVO_API_KEY,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    });
 
-    res.json({ message: "OTP sent successfully via Brevo API" });
+    // ✅ Send email
+    await transporter.sendMail({
+      from: `"NFC Verification" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Student Login OTP",
+      text: `Your OTP for login is ${otp}. It will expire in 5 minutes.`,
+    });
+
+    res.json({ message: "OTP sent successfully via SMTP" });
   } catch (err) {
-    console.error("OTP Error:", err.response?.data || err.message);
+    console.error("OTP Error:", err);
     res.status(500).json({ message: "Error sending OTP" });
   }
 };
