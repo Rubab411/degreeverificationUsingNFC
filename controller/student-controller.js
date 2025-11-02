@@ -1,6 +1,6 @@
 const Student = require("../models/student_models");
 const QRCode = require("qrcode");
-const nodemailer = require("nodemailer");
+const axios = require("axios"); // ✅ Brevo API ke liye axios use hoga
 
 // ✅ Get all students
 const getStudents = async (req, res, next) => {
@@ -93,7 +93,7 @@ const deleteStudent = async (req, res, next) => {
   }
 };
 
-// ✅ Send OTP to Student Email
+// ✅ Send OTP via Brevo API (no SMTP)
 const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
@@ -107,27 +107,26 @@ const sendOtp = async (req, res) => {
     student.otpExpiry = otpExpiry;
     await student.save();
 
-    // ✅ Send OTP via email
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false, // Brevo STARTTLS use karta hai
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+    // ✅ Send via Brevo HTTPS API
+    await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: { name: "NFC Verification System", email: "no-reply@yourdomain.com" },
+        to: [{ email }],
+        subject: "Student Login OTP",
+        textContent: `Your OTP for login is ${otp}. It will expire in 5 minutes.`,
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    await transporter.sendMail({
-      from: "your_email@gmail.com",
-      to: email,
-      subject: "Student Login OTP",
-      text: `Your OTP for login is ${otp}. It will expire in 5 minutes.`,
-    });
-
-    res.json({ message: "OTP sent successfully" });
+    res.json({ message: "OTP sent successfully via Brevo API" });
   } catch (err) {
-    console.error("OTP Error:", err);
+    console.error("OTP Error:", err.response?.data || err.message);
     res.status(500).json({ message: "Error sending OTP" });
   }
 };
