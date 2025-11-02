@@ -114,7 +114,7 @@ const sendOtp = async (req, res) => {
     await student.save();
 
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.sender = { email: "no-reply@yourdomain.com", name: "NFC Verification System" }; // change this
+    sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifiaz" }; // change this
     sendSmtpEmail.to = [{ email }];
     sendSmtpEmail.subject = "Student Login OTP";
     sendSmtpEmail.htmlContent = `
