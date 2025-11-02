@@ -111,7 +111,7 @@ const sendOtp = async (req, res) => {
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,
-  secure: true, // Brevo STARTTLS use karta hai
+  secure: false, // Brevo STARTTLS use karta hai
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
