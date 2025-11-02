@@ -1,6 +1,12 @@
 const Student = require("../models/student_models");
 const QRCode = require("qrcode");
-const nodemailer = require("nodemailer");
+const SibApiV3Sdk = require("sib-api-v3-sdk");
+
+// 🔹 Initialize Brevo SDK
+const defaultClient = SibApiV3Sdk.ApiClient.instance;
+const apiKey = defaultClient.authentications["api-key"];
+apiKey.apiKey = process.env.BREVO_API_KEY;
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 // ✅ Get all students
 const getStudents = async (req, res, next) => {
@@ -93,7 +99,7 @@ const deleteStudent = async (req, res, next) => {
   }
 };
 
-// ✅ Send OTP via SMTP (Brevo)
+// ✅ Send OTP via Brevo API (no SMTP)
 const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
@@ -101,34 +107,29 @@ const sendOtp = async (req, res) => {
     if (!student) return res.status(404).json({ message: "Email not found in records" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 min expiry
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
     student.otp = otp;
     student.otpExpiry = otpExpiry;
     await student.save();
 
-    // ✅ Create SMTP transporter (Brevo)
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      secure: false, // Brevo uses STARTTLS (587)
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.sender = { email: "no-reply@yourdomain.com", name: "NFC Verification System" }; // change this
+    sendSmtpEmail.to = [{ email }];
+    sendSmtpEmail.subject = "Student Login OTP";
+    sendSmtpEmail.htmlContent = `
+      <p>Dear Student,</p>
+      <p>Your OTP for login is: <strong>${otp}</strong></p>
+      <p>This OTP will expire in 5 minutes.</p>
+      <p>Regards,<br>NFC Verification System</p>
+    `;
 
-    // ✅ Send email
-    await transporter.sendMail({
-      from: `"NFC Verification" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Student Login OTP",
-      text: `Your OTP for login is ${otp}. It will expire in 5 minutes.`,
-    });
+    await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    res.json({ message: "OTP sent successfully via SMTP" });
+    console.log("✅ OTP Email sent successfully!");
+    res.status(200).json({ message: "OTP sent successfully via Brevo API" });
   } catch (err) {
-    console.error("OTP Error:", err);
+    console.error("❌ OTP Error:", err.response?.body || err.message);
     res.status(500).json({ message: "Error sending OTP" });
   }
 };
@@ -143,7 +144,6 @@ const verifyOtp = async (req, res) => {
     if (student.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
     if (student.otpExpiry < new Date()) return res.status(400).json({ message: "OTP expired" });
 
-    // ✅ Clear OTP after success
     student.otp = null;
     student.otpExpiry = null;
     await student.save();
