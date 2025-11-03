@@ -4,6 +4,7 @@ const app = express();
 const authRoute = require("./routes/auth-router");
 const contactRoute = require("./routes/contact-router");
 const studentRoutes = require("./routes/student-router");
+const verifierRoutes = require("./routes/verifier-router"); 
 const cors = require("cors");
 const connectDB = require("./utilities/db");
 const errorMiddleware = require("./middlewares/error_middleware");
@@ -28,6 +29,7 @@ app.use(express.json());
 app.use("/", authRoute);
 app.use("/form", contactRoute);
 app.use("/api/students", studentRoutes);
+app.use("/api/verifier", verifierRoutes);
 
 // ✅ Error Middleware should be last
 app.use(errorMiddleware);
