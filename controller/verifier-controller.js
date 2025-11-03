@@ -30,12 +30,14 @@ const sendVerifierOtp = async (req, res) => {
 
     // send email via Brevo (same pattern as student)
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.sender = { email: process.env.BREVO_SENDER_EMAIL || 'no-reply@yourdomain.com', name: 'Verifier' };
-    sendSmtpEmail.to = [{ email }];
-    sendSmtpEmail.subject = 'Your Verifier OTP';
-    sendSmtpEmail.htmlContent = `<p>Your verifier OTP is: <strong>${otp}</strong>. Expires in 5 min.</p>`;
+sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifier" }; // ✅ fixed sender
+sendSmtpEmail.to = [{ email }];
+sendSmtpEmail.subject = "Your Verifier OTP";
+sendSmtpEmail.htmlContent = `
+  <p>Your verifier OTP is: <strong>${otp}</strong>. Expires in 5 min.</p>
+`;
 
-    await apiInstance.sendTransacEmail(sendSmtpEmail);
+await apiInstance.sendTransacEmail(sendSmtpEmail);
 
     return res.status(200).json({ message: 'OTP sent to verifier email' });
   } catch (err) {
