@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require("uuid"); // UUID v8 compatible
 
 const studentSchema = new mongoose.Schema(
   {
-    fullName: { type: String, required: true },
+    Name: { type: String, required: true },
     fatherName: { type: String },
     dob: { type: String },
     gender: { type: String },

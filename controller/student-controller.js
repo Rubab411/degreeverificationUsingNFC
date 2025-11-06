@@ -156,7 +156,7 @@ const verifyOtp = async (req, res) => {
     res.json({
       message: "Login successful",
       student: {
-        name: student.fullName,
+        name: student.Name,
         roll: student.roll,
         program: student.program,
         degreeStatus: student.degreeStatus,

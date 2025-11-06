@@ -100,7 +100,7 @@ const scanStudentByUid = async (req, res) => {
       return res.status(200).json({
         message: "Degree found and verified",
         student: {
-          name: student.fullName,
+          name: student.Name,
           roll: student.roll,
           program: student.program,
           degreeTitle: student.degreeTitle,
@@ -112,7 +112,7 @@ const scanStudentByUid = async (req, res) => {
 
     return res.status(200).json({
       message: "Degree is not generated yet",
-      student: { name: student.fullName, roll: student.roll },
+      student: { name: student.Name, roll: student.roll },
     });
   } catch (err) {
     console.error("Scan error:", err);
