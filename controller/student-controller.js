@@ -28,8 +28,9 @@ const createStudent = async (req, res, next) => {
 
     const student = await Student.create(req.body);
 
-    // 🔒 Only UID (no nfcverify:// URL)
-    const verifyURL = student.uid;
+   
+   const verifyURL = `nfcverify://verify/${student.uid}`;
+
     student.verifyURL = verifyURL;
     await student.save();
 
@@ -59,7 +60,8 @@ const bindNfcChip = async (req, res, next) => {
     if (!student) return res.status(404).json({ msg: "Student not found" });
 
     // 🔒 Only store UID (no "nfcverify://verify/")
-    const verifyURL = student.uid;
+    const verifyURL = `nfcverify://verify/${student.uid}`;
+
     student.nfcUID = nfcUID;
     student.verifyURL = verifyURL;
 

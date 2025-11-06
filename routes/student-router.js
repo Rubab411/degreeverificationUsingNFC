@@ -43,8 +43,9 @@ router.post("/generate-degree", async (req, res) => {
     const student = await Student.findOne({ uid });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    // ✅ Save only UID as verifyURL (no "nfcverify://" prefix)
-    const verifyURL = student.uid;
+   
+    const verifyURL = `nfcverify://verify/${student.uid}`;
+
 
     // Optional QR (just UID text)
     const qrImage = await QRCode.toDataURL(verifyURL);
@@ -71,10 +72,10 @@ router.post("/generate-degree", async (req, res) => {
 
 
 // --------------------------------------------------
-// 🟩 Verify Student by UID (For NFC Verification)
-router.get("/verify", async (req, res) => {
+// 🟩 Verify Student by UID (supports both ?uid= and /verify/:uid)
+router.get("/verify/:uid?", async (req, res) => {
   try {
-    const uid = req.query.uid;
+    const uid = req.params.uid || req.query.uid;
     const student = await Student.findOne({ uid });
     if (!student) return res.status(404).send("Student not found");
     res.send(student);
@@ -83,6 +84,7 @@ router.get("/verify", async (req, res) => {
     res.status(500).send("Server error");
   }
 });
+
 
 // --------------------------------------------------
 // 🟩 Student Login via OTP
