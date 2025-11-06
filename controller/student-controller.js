@@ -18,7 +18,7 @@ const getStudents = async (req, res, next) => {
   }
 };
 
-// ✅ Create new student
+// ✅ Create new student (now only saves UID)
 const createStudent = async (req, res, next) => {
   try {
     const studentExist = await Student.findOne({ roll: req.body.roll });
@@ -27,10 +27,13 @@ const createStudent = async (req, res, next) => {
     }
 
     const student = await Student.create(req.body);
-    const verifyURL = `nfcverify://verify/${student.uid}`;
+
+    // 🔒 Only UID (no nfcverify:// URL)
+    const verifyURL = student.uid;
     student.verifyURL = verifyURL;
     await student.save();
 
+    // Optional QR (still works fine)
     const qrImage = await QRCode.toDataURL(verifyURL);
 
     res.status(201).json({
@@ -44,7 +47,7 @@ const createStudent = async (req, res, next) => {
   }
 };
 
-// ✅ Bind NFC Chip
+// ✅ Bind NFC Chip (only saves UID — no popup link)
 const bindNfcChip = async (req, res, next) => {
   try {
     const { roll, nfcUID } = req.body;
@@ -55,7 +58,8 @@ const bindNfcChip = async (req, res, next) => {
     const student = await Student.findOne({ roll });
     if (!student) return res.status(404).json({ msg: "Student not found" });
 
-    const verifyURL = `nfcverify://verify/${student.uid}`;
+    // 🔒 Only store UID (no "nfcverify://verify/")
+    const verifyURL = student.uid;
     student.nfcUID = nfcUID;
     student.verifyURL = verifyURL;
 
@@ -99,7 +103,7 @@ const deleteStudent = async (req, res, next) => {
   }
 };
 
-// ✅ Send OTP via Brevo API (no SMTP)
+// ✅ Send OTP via Brevo API
 const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
@@ -114,7 +118,7 @@ const sendOtp = async (req, res) => {
     await student.save();
 
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifiaz" }; // change this
+    sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifiaz" };
     sendSmtpEmail.to = [{ email }];
     sendSmtpEmail.subject = "Student Login OTP";
     sendSmtpEmail.htmlContent = `
@@ -126,7 +130,6 @@ const sendOtp = async (req, res) => {
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    console.log("✅ OTP Email sent successfully!");
     res.status(200).json({ message: "OTP sent successfully via Brevo API" });
   } catch (err) {
     console.error("❌ OTP Error:", err.response?.body || err.message);
