@@ -73,7 +73,7 @@ router.post("/generate-degree", async (req, res) => {
 
 // --------------------------------------------------
 // 🟩 Verify Student by UID (supports both ?uid= and /verify/:uid)
-router.get("/verify/:uid?", async (req, res) => {
+router.get("/verify/:uid", async (req, res) => {
   try {
     const uid = req.params.uid || req.query.uid;
     const student = await Student.findOne({ uid });
