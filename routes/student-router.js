@@ -34,6 +34,7 @@ router.delete("/:id", deleteStudent);
 
 // --------------------------------------------------
 // 🟩 Generate Degree
+// 🟩 Generate Degree (only UID stored, no URL)
 router.post("/generate-degree", async (req, res) => {
   try {
     const { uid, degreeTitle } = req.body;
@@ -42,7 +43,10 @@ router.post("/generate-degree", async (req, res) => {
     const student = await Student.findOne({ uid });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    const verifyURL = `nfcverify://verify/${student.uid}`;
+    // ✅ Save only UID as verifyURL (no "nfcverify://" prefix)
+    const verifyURL = student.uid;
+
+    // Optional QR (just UID text)
     const qrImage = await QRCode.toDataURL(verifyURL);
 
     student.degreeTitle = degreeTitle;
@@ -64,6 +68,7 @@ router.post("/generate-degree", async (req, res) => {
     res.status(500).json({ message: "Error generating degree" });
   }
 });
+
 
 // --------------------------------------------------
 // 🟩 Verify Student by UID (For NFC Verification)
