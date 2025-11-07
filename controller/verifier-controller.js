@@ -95,7 +95,7 @@ const scanStudentByUid = async (req, res) => {
     const responseData = {
       Name: student.Name,
       program: student.program,
-      degreeTitle: student.degreeTitle || "N/A",
+      batch: student.batch || "N/A",
       degreeStatus: student.degreeStatus || "Pending",
       degreeGeneratedDate: student.degreeGeneratedDate || null,
     };
