@@ -91,6 +91,15 @@ const scanStudentByUid = async (req, res) => {
       );
     }
 
+    // prepare student response data
+    const responseData = {
+      Name: student.Name,
+      program: student.program,
+      degreeTitle: student.degreeTitle || "N/A",
+      degreeStatus: student.degreeStatus || "Pending",
+      degreeGeneratedDate: student.degreeGeneratedDate || null,
+    };
+
     // check degree status
     if (
       student.degreeIssued &&
@@ -99,20 +108,13 @@ const scanStudentByUid = async (req, res) => {
     ) {
       return res.status(200).json({
         message: "Degree found and verified",
-        student: {
-          name: student.Name,
-          roll: student.roll,
-          program: student.program,
-          degreeTitle: student.degreeTitle,
-          degreeStatus: student.degreeStatus,
-          verifyURL: student.verifyURL || null,
-        },
+        student: responseData,
       });
     }
 
     return res.status(200).json({
       message: "Degree is not generated yet",
-      student: { name: student.Name, roll: student.roll },
+      student: responseData,
     });
   } catch (err) {
     console.error("Scan error:", err);
