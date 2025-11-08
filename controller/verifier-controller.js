@@ -115,22 +115,24 @@ const scanStudentByUid = async (req, res) => {
     const verifier = await Verifier.findOne({ email }).sort({ createdAt: -1 });
     if (!verifier) return res.status(404).json({ message: "Please login first." });
 
-    
     // ✅ Prevent multiple scans in same session
-if (verifier.lastScannedStudent) {
-  return res.status(400).json({
-    message: "Scan limit reached for this session. Please log out and log in again to continue scanning.",
-  });
-}
+    if (verifier.lastScannedStudent) {
+      return res.status(400).json({
+        message: "Scan limit reached for this session. Please log out and log in again to continue scanning.",
+      });
+    }
 
     const student = await Student.findOne({ uid });
     if (!student) return res.status(404).json({ message: "Student not registered" });
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Update existing login record with scan info
+    // ✅ Save scan info with UID + Roll
     verifier.lastScan = new Date();
-    verifier.lastScannedStudent = uid;
+    verifier.lastScannedStudent = {
+      uid: student.uid,
+      roll: student.roll || "N/A",
+    };
     verifier.ip = ipAddress;
     await verifier.save();
 
@@ -145,7 +147,6 @@ if (verifier.lastScannedStudent) {
       year: "numeric",
     });
 
-    // ✅ Added department + lowercase name key
     res.status(200).json({
       message: "Student scanned successfully",
       scannedBy: email,
@@ -167,7 +168,7 @@ if (verifier.lastScannedStudent) {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Get All Logs
+// 🔹 Get All Logs (with roll instead of UID)
 // ─────────────────────────────────────────────
 const getAllVerifierLogs = async (req, res) => {
   try {
@@ -195,7 +196,7 @@ const getAllVerifierLogs = async (req, res) => {
         ip: v.ip || "N/A",
         lastLogin: formatDate(v.lastLogin),
         lastScan: formatDate(v.lastScan),
-        scannedStudentUID: v.lastScannedStudent || "N/A",
+        studentRoll: v.lastScannedStudent?.roll || "N/A",
         createdAt: formatDate(v.createdAt),
       };
     });
