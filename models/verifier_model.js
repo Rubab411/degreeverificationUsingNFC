@@ -8,7 +8,7 @@ const verifierSchema = new mongoose.Schema({
   lastScan: Date,
   lastScannedStudent: String, // ✅ store UID of last scanned student
   ip: String,
-  deviceInfo: String,
+  
   createdAt: { type: Date, default: Date.now },
 });
 

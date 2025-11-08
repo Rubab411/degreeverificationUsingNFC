@@ -33,10 +33,10 @@ const sendVerifierOtp = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'Email required' });
 
     const otp = generateOtp();
-    const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+    const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
     const { ipAddress } = extractClientInfo(req);
 
-    // OTP bhejna
+    // send OTP via Brevo (email)
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
     sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifier System" };
     sendSmtpEmail.to = [{ email }];
@@ -45,7 +45,7 @@ const sendVerifierOtp = async (req, res) => {
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    // OTP temporarily memory me store nahi — backend db me ek OTP record
+    // create OTP record
     await Verifier.create({
       email,
       otp,
@@ -84,7 +84,7 @@ const verifyVerifierOtp = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Create new "login event"
+    // ✅ create new login record
     await Verifier.create({
       email,
       ip: ipAddress,
@@ -111,7 +111,7 @@ const verifyVerifierOtp = async (req, res) => {
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
-    const { uid, email, deviceInfo } = req.body;
+    const { uid, email } = req.body;
     if (!uid) return res.status(400).json({ message: "UID required" });
     if (!email) return res.status(400).json({ message: "Verifier email required" });
 
@@ -121,13 +121,12 @@ const scanStudentByUid = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Every scan → new record (no overwrite)
+    // ✅ new scan record
     await Verifier.create({
       email,
       ip: ipAddress,
       lastScan: new Date(),
       lastScannedStudent: uid,
-      deviceInfo: deviceInfo || "Unknown Device",
       createdAt: new Date(),
     });
 
@@ -170,7 +169,7 @@ const scanStudentByUid = async (req, res) => {
 const getAllVerifierLogs = async (req, res) => {
   try {
     const verifiers = await Verifier.find()
-      .select("email ip lastLogin lastScan lastScannedStudent createdAt deviceInfo -_id")
+      .select("email ip lastLogin lastScan lastScannedStudent createdAt -_id")
       .sort({ createdAt: -1 });
 
     const formatted = verifiers.map(v => {
@@ -191,7 +190,6 @@ const getAllVerifierLogs = async (req, res) => {
       return {
         email: v.email,
         ip: v.ip || "N/A",
-        device: v.deviceInfo || "Unknown Device",
         lastLogin: formatDate(v.lastLogin),
         lastScan: formatDate(v.lastScan),
         scannedStudentUID: v.lastScannedStudent || "N/A",
