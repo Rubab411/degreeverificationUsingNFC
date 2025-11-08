@@ -45,14 +45,13 @@ const sendVerifierOtp = async (req, res) => {
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    // create OTP record
+    // Save OTP (temporary)
     await Verifier.create({
       email,
       otp,
       otpExpiry: expiry,
       ip: ipAddress,
       lastLogin: new Date(),
-      createdAt: new Date(),
     });
 
     res.status(200).json({
@@ -84,8 +83,8 @@ const verifyVerifierOtp = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ create new login record
-    await Verifier.create({
+    // ✅ Create new login session (new record)
+    const newLogin = await Verifier.create({
       email,
       ip: ipAddress,
       lastLogin: new Date(),
@@ -95,9 +94,10 @@ const verifyVerifierOtp = async (req, res) => {
     res.status(200).json({
       message: "Verifier logged in successfully",
       data: {
+        sessionId: newLogin._id, // unique session identifier
         email,
         ip: ipAddress,
-        lastLogin: new Date(),
+        lastLogin: newLogin.lastLogin,
       },
     });
   } catch (err) {
@@ -111,9 +111,18 @@ const verifyVerifierOtp = async (req, res) => {
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
-    const { uid, email } = req.body;
+    const { uid, sessionId } = req.body;
     if (!uid) return res.status(400).json({ message: "UID required" });
-    if (!email) return res.status(400).json({ message: "Verifier email required" });
+    if (!sessionId) return res.status(400).json({ message: "Session ID required" });
+
+    const verifier = await Verifier.findById(sessionId);
+    if (!verifier) return res.status(404).json({ message: "Invalid session. Please login again." });
+
+    if (verifier.lastScannedStudent) {
+      return res.status(400).json({
+        message: "Already scanned in this session. Please login again to scan another student.",
+      });
+    }
 
     const student = await Student.findOne({ uid });
     if (!student)
@@ -121,14 +130,11 @@ const scanStudentByUid = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ new scan record
-    await Verifier.create({
-      email,
-      ip: ipAddress,
-      lastScan: new Date(),
-      lastScannedStudent: uid,
-      createdAt: new Date(),
-    });
+    // ✅ Update existing login record with scan details
+    verifier.lastScan = new Date();
+    verifier.lastScannedStudent = uid;
+    verifier.ip = ipAddress;
+    await verifier.save();
 
     const formattedTime = new Date().toLocaleString("en-US", {
       timeZone: "Asia/Karachi",
@@ -152,7 +158,7 @@ const scanStudentByUid = async (req, res) => {
 
     res.status(200).json({
       message: "Student scanned successfully",
-      scannedBy: email,
+      scannedBy: verifier.email,
       ip: ipAddress,
       student: responseData,
       scanTime: formattedTime,
@@ -193,7 +199,7 @@ const getAllVerifierLogs = async (req, res) => {
         lastLogin: formatDate(v.lastLogin),
         lastScan: formatDate(v.lastScan),
         scannedStudentUID: v.lastScannedStudent || "N/A",
-        scanTime: formatDate(v.createdAt),
+        createdAt: formatDate(v.createdAt),
       };
     });
 
