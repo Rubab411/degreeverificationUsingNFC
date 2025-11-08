@@ -14,15 +14,17 @@ function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// 🔹 Extract IP & device info from request
+// 🔹 Extract only IP
 function extractClientInfo(req) {
-  const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || null;
-  const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
-  return { ipAddress, deviceInfo };
+  const ipAddress =
+    req.headers['x-forwarded-for'] ||
+    req.socket.remoteAddress ||
+    null;
+  return { ipAddress };
 }
 
 // ─────────────────────────────────────────────
-// 🔹 Send OTP to verifier email
+// 🔹 Send OTP to Verifier Email
 // ─────────────────────────────────────────────
 const sendVerifierOtp = async (req, res) => {
   try {
@@ -31,9 +33,8 @@ const sendVerifierOtp = async (req, res) => {
 
     const otp = generateOtp();
     const expiry = new Date(Date.now() + 5 * 60 * 1000);
-    const { ipAddress, deviceInfo } = extractClientInfo(req);
+    const { ipAddress } = extractClientInfo(req);
 
-    // upsert verifier record (create if not exist)
     const verifier = await Verifier.findOneAndUpdate(
       { email },
       {
@@ -42,12 +43,11 @@ const sendVerifierOtp = async (req, res) => {
         otpExpiry: expiry,
         lastLogin: new Date(),
         ip: ipAddress,
-        deviceInfo,
       },
       { upsert: true, new: true }
     );
 
-    // send email
+    // send OTP via email
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
     sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifier System" };
     sendSmtpEmail.to = [{ email }];
@@ -64,7 +64,7 @@ const sendVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Verify OTP (Login verifier)
+// 🔹 Verify OTP (Login Verifier)
 // ─────────────────────────────────────────────
 const verifyVerifierOtp = async (req, res) => {
   try {
@@ -74,14 +74,12 @@ const verifyVerifierOtp = async (req, res) => {
 
     let verifier = await Verifier.findOne({ email });
 
-    // If verifier doesn't exist, create record and ask for OTP
     if (!verifier) {
-      const { ipAddress, deviceInfo } = extractClientInfo(req);
+      const { ipAddress } = extractClientInfo(req);
       verifier = await Verifier.create({
         email,
         lastLogin: new Date(),
         ip: ipAddress,
-        deviceInfo,
       });
 
       return res.status(201).json({
@@ -90,29 +88,26 @@ const verifyVerifierOtp = async (req, res) => {
       });
     }
 
-    // OTP validation
-    if (!verifier.otp || verifier.otp !== otp) {
+    if (!verifier.otp || verifier.otp !== otp)
       return res.status(400).json({ message: "Invalid or missing OTP" });
-    }
-    if (verifier.otpExpiry && verifier.otpExpiry < new Date()) {
-      return res.status(400).json({ message: "OTP expired" });
-    }
 
-    // OTP valid → clear otp, update meta info
-    const { ipAddress, deviceInfo } = extractClientInfo(req);
+    if (verifier.otpExpiry && verifier.otpExpiry < new Date())
+      return res.status(400).json({ message: "OTP expired" });
+
+    const { ipAddress } = extractClientInfo(req);
     verifier.otp = null;
     verifier.otpExpiry = null;
     verifier.lastLogin = new Date();
     verifier.ip = ipAddress;
-    verifier.deviceInfo = deviceInfo;
     await verifier.save();
 
     res.status(200).json({
       message: "Verifier logged in successfully",
-      email: verifier.email,
-      ip: verifier.ip,
-      device: verifier.deviceInfo,
-      lastLogin: verifier.lastLogin,
+      data: {
+        email: verifier.email,
+        ip: verifier.ip,
+        lastLogin: verifier.lastLogin,
+      },
     });
   } catch (err) {
     console.error("Verifier verify error:", err);
@@ -121,7 +116,7 @@ const verifyVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Scan student by UID (update verifier logs)
+// 🔹 Scan Student by UID (record who scanned)
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
@@ -133,20 +128,24 @@ const scanStudentByUid = async (req, res) => {
       return res.status(404).json({ message: "Student not registered" });
     }
 
-    // update verifier info if email provided
+    const { ipAddress } = extractClientInfo(req);
+
+    // ✅ Update verifier record with student UID
     if (email) {
-      const { ipAddress, deviceInfo } = extractClientInfo(req);
       await Verifier.findOneAndUpdate(
         { email },
         {
-          $set: { ip: ipAddress, lastScan: new Date(), deviceInfo },
+          $set: {
+            ip: ipAddress,
+            lastScan: new Date(),
+            lastScannedStudent: uid,
+          },
           $setOnInsert: { email },
         },
         { upsert: true, new: true }
       );
     }
 
-    // prepare student info
     const responseData = {
       Name: student.Name,
       program: student.program,
@@ -155,15 +154,9 @@ const scanStudentByUid = async (req, res) => {
       degreeGeneratedDate: student.degreeGeneratedDate || null,
     };
 
-    if (student.degreeStatus === "Generated" || student.degreeStatus === "Verified") {
-      return res.status(200).json({
-        message: "Degree found and verified",
-        student: responseData,
-      });
-    }
-
-    return res.status(200).json({
-      message: "Degree is not generated yet",
+    res.status(200).json({
+      message: "Student scanned successfully",
+      scannedBy: email || "Unknown",
       student: responseData,
     });
   } catch (err) {
@@ -173,17 +166,26 @@ const scanStudentByUid = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Get all verifier logs (Admin dashboard)
+// 🔹 Get All Verifier Logs (Admin View)
 // ─────────────────────────────────────────────
 const getAllVerifierLogs = async (req, res) => {
   try {
     const verifiers = await Verifier.find()
-      .select("email ip deviceInfo lastLogin lastScan createdAt -_id")
+      .select("email ip lastLogin lastScan lastScannedStudent createdAt -_id")
       .sort({ lastLogin: -1 });
 
+    const formatted = verifiers.map(v => ({
+      email: v.email,
+      lastLogin: v.lastLogin || "N/A",
+      lastScan: v.lastScan || "N/A",
+      scannedStudentUID: v.lastScannedStudent || "N/A",
+      ip: v.ip || "N/A",
+      createdAt: v.createdAt,
+    }));
+
     res.status(200).json({
-      count: verifiers.length,
-      verifiers,
+      count: formatted.length,
+      verifiers: formatted,
     });
   } catch (err) {
     console.error("Error fetching verifier logs:", err);

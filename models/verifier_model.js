@@ -6,7 +6,7 @@ const verifierSchema = new mongoose.Schema({
   otpExpiry: Date,
   lastLogin: Date,
   lastScan: Date,
-  lastScannedStudent: String,     // ✅ New field — store student UID
+  lastScannedStudent: String, // ✅ store UID of last scanned student
   ip: String,
   deviceInfo: String,
   createdAt: { type: Date, default: Date.now },
