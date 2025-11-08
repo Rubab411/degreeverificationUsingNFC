@@ -118,6 +118,9 @@ const verifyVerifierOtp = async (req, res) => {
 // ─────────────────────────────────────────────
 // 🔹 Scan Student by UID (record who scanned)
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// 🔹 Scan Student by UID (record all scans)
+// ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
     const { uid, email } = req.body;
@@ -130,21 +133,14 @@ const scanStudentByUid = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Update verifier record with student UID
-    if (email) {
-      await Verifier.findOneAndUpdate(
-        { email },
-        {
-          $set: {
-            ip: ipAddress,
-            lastScan: new Date(),
-            lastScannedStudent: uid,
-          },
-          $setOnInsert: { email },
-        },
-        { upsert: true, new: true }
-      );
-    }
+    // ✅ Each scan creates a new log entry (no overwrite)
+    const newLog = await Verifier.create({
+      email: email || "Unknown",
+      lastScan: new Date(),
+      lastScannedStudent: uid,
+      ip: ipAddress,
+      createdAt: new Date(),
+    });
 
     const responseData = {
       Name: student.Name,
@@ -156,7 +152,7 @@ const scanStudentByUid = async (req, res) => {
 
     res.status(200).json({
       message: "Student scanned successfully",
-      scannedBy: email || "Unknown",
+      scannedBy: newLog.email,
       student: responseData,
     });
   } catch (err) {
@@ -164,6 +160,7 @@ const scanStudentByUid = async (req, res) => {
     res.status(500).json({ message: "Error scanning student" });
   }
 };
+
 
 // ─────────────────────────────────────────────
 // 🔹 Get All Verifier Logs (Admin View)
