@@ -33,22 +33,10 @@ const sendVerifierOtp = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'Email required' });
 
     const otp = generateOtp();
-    const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
+    const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 min
     const { ipAddress } = extractClientInfo(req);
 
-    const verifier = await Verifier.findOneAndUpdate(
-      { email },
-      {
-        email,
-        otp,
-        otpExpiry: expiry,
-        lastLogin: new Date(),
-        ip: ipAddress,
-      },
-      { upsert: true, new: true }
-    );
-
-    // send OTP via email
+    // OTP bhejna
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
     sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifier System" };
     sendSmtpEmail.to = [{ email }];
@@ -57,10 +45,20 @@ const sendVerifierOtp = async (req, res) => {
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
+    // OTP temporarily memory me store nahi — backend db me ek OTP record
+    await Verifier.create({
+      email,
+      otp,
+      otpExpiry: expiry,
+      ip: ipAddress,
+      lastLogin: new Date(),
+      createdAt: new Date(),
+    });
+
     res.status(200).json({
       message: "OTP sent successfully",
-      email: verifier.email,
-      ip: verifier.ip,
+      email,
+      ip: ipAddress,
       otpExpiry: expiry,
     });
   } catch (err) {
@@ -78,41 +76,28 @@ const verifyVerifierOtp = async (req, res) => {
     if (!email || !otp)
       return res.status(400).json({ message: "Email and OTP required" });
 
-    let verifier = await Verifier.findOne({ email });
+    const existing = await Verifier.findOne({ email }).sort({ createdAt: -1 });
 
-    if (!verifier) {
-      const { ipAddress } = extractClientInfo(req);
-      verifier = await Verifier.create({
-        email,
-        ip: ipAddress,
-        lastLogin: new Date(),
-      });
-      return res.status(201).json({
-        message: "Verifier record created. Please request OTP again.",
-        email: verifier.email,
-      });
-    }
-
-    if (verifier.otp !== otp)
-      return res.status(400).json({ message: "Invalid OTP" });
-
-    if (verifier.otpExpiry && verifier.otpExpiry < new Date())
-      return res.status(400).json({ message: "OTP expired" });
+    if (!existing) return res.status(400).json({ message: "Please request OTP first" });
+    if (existing.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
+    if (existing.otpExpiry < new Date()) return res.status(400).json({ message: "OTP expired" });
 
     const { ipAddress } = extractClientInfo(req);
 
-    verifier.otp = null;
-    verifier.otpExpiry = null;
-    verifier.lastLogin = new Date();
-    verifier.ip = ipAddress;
-    await verifier.save();
+    // ✅ Create new "login event"
+    await Verifier.create({
+      email,
+      ip: ipAddress,
+      lastLogin: new Date(),
+      createdAt: new Date(),
+    });
 
     res.status(200).json({
       message: "Verifier logged in successfully",
       data: {
-        email: verifier.email,
-        ip: verifier.ip,
-        lastLogin: verifier.lastLogin,
+        email,
+        ip: ipAddress,
+        lastLogin: new Date(),
       },
     });
   } catch (err) {
@@ -123,11 +108,10 @@ const verifyVerifierOtp = async (req, res) => {
 
 // ─────────────────────────────────────────────
 // 🔹 Scan Student by UID
-//    Logs every scan with verifier + student + time + ip
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
-    const { uid, email } = req.body;
+    const { uid, email, deviceInfo } = req.body;
     if (!uid) return res.status(400).json({ message: "UID required" });
     if (!email) return res.status(400).json({ message: "Verifier email required" });
 
@@ -137,13 +121,25 @@ const scanStudentByUid = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Log the scan (do not overwrite verifier entry)
+    // ✅ Every scan → new record (no overwrite)
     await Verifier.create({
       email,
       ip: ipAddress,
       lastScan: new Date(),
       lastScannedStudent: uid,
+      deviceInfo: deviceInfo || "Unknown Device",
       createdAt: new Date(),
+    });
+
+    const formattedTime = new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Karachi",
+      hour12: true,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
 
     const responseData = {
@@ -152,7 +148,7 @@ const scanStudentByUid = async (req, res) => {
       batch: student.batch || "N/A",
       degreeStatus: student.degreeStatus || "Pending",
       degreeGeneratedDate: student.degreeGeneratedDate || null,
-      scannedAt: new Date(),
+      scannedAt: formattedTime,
     };
 
     res.status(200).json({
@@ -160,6 +156,7 @@ const scanStudentByUid = async (req, res) => {
       scannedBy: email,
       ip: ipAddress,
       student: responseData,
+      scanTime: formattedTime,
     });
   } catch (err) {
     console.error("Scan error:", err);
@@ -173,17 +170,34 @@ const scanStudentByUid = async (req, res) => {
 const getAllVerifierLogs = async (req, res) => {
   try {
     const verifiers = await Verifier.find()
-      .select("email ip lastLogin lastScan lastScannedStudent createdAt -_id")
+      .select("email ip lastLogin lastScan lastScannedStudent createdAt deviceInfo -_id")
       .sort({ createdAt: -1 });
 
-    const formatted = verifiers.map(v => ({
-      email: v.email,
-      ip: v.ip || "N/A",
-      lastLogin: v.lastLogin || "N/A",
-      lastScan: v.lastScan || "N/A",
-      scannedStudentUID: v.lastScannedStudent || "N/A",
-      scanTime: v.createdAt,
-    }));
+    const formatted = verifiers.map(v => {
+      const formatDate = (d) =>
+        d
+          ? new Date(d).toLocaleString("en-US", {
+              timeZone: "Asia/Karachi",
+              hour12: true,
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "N/A";
+
+      return {
+        email: v.email,
+        ip: v.ip || "N/A",
+        device: v.deviceInfo || "Unknown Device",
+        lastLogin: formatDate(v.lastLogin),
+        lastScan: formatDate(v.lastScan),
+        scannedStudentUID: v.lastScannedStudent || "N/A",
+        scanTime: formatDate(v.createdAt),
+      };
+    });
 
     res.status(200).json({
       count: formatted.length,
