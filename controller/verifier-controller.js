@@ -151,7 +151,7 @@ if (verifier.lastScannedStudent) {
       scannedBy: email,
       ip: ipAddress,
       student: {
-        name: student.Name,
+        name: student.Name || student.name || "N/A",
         department: student.department || "N/A",
         program: student.program,
         batch: student.batch || "N/A",
