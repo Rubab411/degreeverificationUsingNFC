@@ -25,7 +25,7 @@ function extractClientInfo(req) {
 }
 
 // ─────────────────────────────────────────────
-// 🔹 Send OTP to Verifier Email
+// 🔹 Send OTP
 // ─────────────────────────────────────────────
 const sendVerifierOtp = async (req, res) => {
   try {
@@ -33,10 +33,10 @@ const sendVerifierOtp = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'Email required' });
 
     const otp = generateOtp();
-    const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
+    const expiry = new Date(Date.now() + 5 * 60 * 1000);
     const { ipAddress } = extractClientInfo(req);
 
-    // send OTP via Brevo (email)
+    // Send OTP via Brevo
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
     sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifier System" };
     sendSmtpEmail.to = [{ email }];
@@ -45,7 +45,6 @@ const sendVerifierOtp = async (req, res) => {
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    // Save OTP (temporary)
     await Verifier.create({
       email,
       otp,
@@ -57,7 +56,6 @@ const sendVerifierOtp = async (req, res) => {
     res.status(200).json({
       message: "OTP sent successfully",
       email,
-      ip: ipAddress,
       otpExpiry: expiry,
     });
   } catch (err) {
@@ -67,7 +65,7 @@ const sendVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Verify OTP (Login Verifier)
+// 🔹 Verify OTP (Login)
 // ─────────────────────────────────────────────
 const verifyVerifierOtp = async (req, res) => {
   try {
@@ -83,18 +81,17 @@ const verifyVerifierOtp = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Create new login session (new record)
+    // ✅ New login record
     const newLogin = await Verifier.create({
       email,
       ip: ipAddress,
       lastLogin: new Date(),
-      createdAt: new Date(),
     });
 
     res.status(200).json({
       message: "Verifier logged in successfully",
       data: {
-        sessionId: newLogin._id, // unique session identifier
+        sessionId: newLogin._id, // unique ID for current login session
         email,
         ip: ipAddress,
         lastLogin: newLogin.lastLogin,
@@ -107,30 +104,30 @@ const verifyVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Scan Student by UID
+// 🔹 Scan Student (Only Once Per Login)
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
-    const { uid, sessionId } = req.body;
+    const { uid, email } = req.body;
     if (!uid) return res.status(400).json({ message: "UID required" });
-    if (!sessionId) return res.status(400).json({ message: "Session ID required" });
+    if (!email) return res.status(400).json({ message: "Verifier email required" });
 
-    const verifier = await Verifier.findById(sessionId);
-    if (!verifier) return res.status(404).json({ message: "Invalid session. Please login again." });
+    const verifier = await Verifier.findOne({ email }).sort({ createdAt: -1 });
+    if (!verifier) return res.status(404).json({ message: "Please login first." });
 
+    // ✅ Prevent multiple scans in same session
     if (verifier.lastScannedStudent) {
       return res.status(400).json({
-        message: "Already scanned in this session. Please login again to scan another student.",
+        message: "You have already scanned in this session. Please login again to scan another student.",
       });
     }
 
     const student = await Student.findOne({ uid });
-    if (!student)
-      return res.status(404).json({ message: "Student not registered" });
+    if (!student) return res.status(404).json({ message: "Student not registered" });
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Update existing login record with scan details
+    // ✅ Update existing login record with scan info
     verifier.lastScan = new Date();
     verifier.lastScannedStudent = uid;
     verifier.ip = ipAddress;
@@ -147,20 +144,17 @@ const scanStudentByUid = async (req, res) => {
       year: "numeric",
     });
 
-    const responseData = {
-      name: student.Name,
-      program: student.program,
-      batch: student.batch || "N/A",
-      degreeStatus: student.degreeStatus || "Pending",
-      degreeGeneratedDate: student.degreeGeneratedDate || null,
-      scannedAt: formattedTime,
-    };
-
     res.status(200).json({
       message: "Student scanned successfully",
-      scannedBy: verifier.email,
+      scannedBy: email,
       ip: ipAddress,
-      student: responseData,
+      student: {
+        name: student.Name,
+        program: student.program,
+        batch: student.batch || "N/A",
+        degreeStatus: student.degreeStatus || "Pending",
+        degreeGeneratedDate: student.degreeGeneratedDate || null,
+      },
       scanTime: formattedTime,
     });
   } catch (err) {
@@ -170,7 +164,7 @@ const scanStudentByUid = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Get All Verifier Logs (Admin Panel)
+// 🔹 Get All Logs
 // ─────────────────────────────────────────────
 const getAllVerifierLogs = async (req, res) => {
   try {
