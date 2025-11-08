@@ -115,12 +115,13 @@ const scanStudentByUid = async (req, res) => {
     const verifier = await Verifier.findOne({ email }).sort({ createdAt: -1 });
     if (!verifier) return res.status(404).json({ message: "Please login first." });
 
+    
     // ✅ Prevent multiple scans in same session
-    if (verifier.lastScannedStudent) {
-      return res.status(400).json({
-        message: "You have already scanned in this session. Please login again to scan another student.",
-      });
-    }
+if (verifier.lastScannedStudent) {
+  return res.status(400).json({
+    message: "Scan limit reached for this session. Please log out and log in again to continue scanning.",
+  });
+}
 
     const student = await Student.findOne({ uid });
     if (!student) return res.status(404).json({ message: "Student not registered" });
@@ -144,12 +145,14 @@ const scanStudentByUid = async (req, res) => {
       year: "numeric",
     });
 
+    // ✅ Added department + lowercase name key
     res.status(200).json({
       message: "Student scanned successfully",
       scannedBy: email,
       ip: ipAddress,
       student: {
         name: student.Name,
+        department: student.department || "N/A",
         program: student.program,
         batch: student.batch || "N/A",
         degreeStatus: student.degreeStatus || "Pending",
