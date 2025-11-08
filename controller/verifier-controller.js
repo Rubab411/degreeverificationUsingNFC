@@ -45,13 +45,12 @@ const sendVerifierOtp = async (req, res) => {
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    // create OTP record
+    // store OTP temporarily
     await Verifier.create({
       email,
       otp,
       otpExpiry: expiry,
       ip: ipAddress,
-      lastLogin: new Date(),
       createdAt: new Date(),
     });
 
@@ -84,11 +83,12 @@ const verifyVerifierOtp = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ create new login record
-    await Verifier.create({
+    // ✅ create new login session (1 login = 1 session)
+    const newSession = await Verifier.create({
       email,
       ip: ipAddress,
       lastLogin: new Date(),
+      sessionActive: true,
       createdAt: new Date(),
     });
 
@@ -97,7 +97,8 @@ const verifyVerifierOtp = async (req, res) => {
       data: {
         email,
         ip: ipAddress,
-        lastLogin: new Date(),
+        lastLogin: newSession.lastLogin,
+        sessionActive: true,
       },
     });
   } catch (err) {
@@ -107,7 +108,7 @@ const verifyVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Scan Student by UID
+// 🔹 Scan Student by UID (Only Once per Session)
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
@@ -115,20 +116,28 @@ const scanStudentByUid = async (req, res) => {
     if (!uid) return res.status(400).json({ message: "UID required" });
     if (!email) return res.status(400).json({ message: "Verifier email required" });
 
+    const session = await Verifier.findOne({ email }).sort({ createdAt: -1 });
+    if (!session)
+      return res.status(403).json({ message: "Login session not found" });
+
+    if (!session.sessionActive)
+      return res.status(403).json({ message: "Session expired or already used" });
+
+    if (session.lastScan)
+      return res.status(403).json({ message: "You can scan only once per session" });
+
     const student = await Student.findOne({ uid });
     if (!student)
       return res.status(404).json({ message: "Student not registered" });
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ new scan record
-    await Verifier.create({
-      email,
-      ip: ipAddress,
-      lastScan: new Date(),
-      lastScannedStudent: uid,
-      createdAt: new Date(),
-    });
+    // ✅ Update same session record with scan info
+    session.lastScan = new Date();
+    session.lastScannedStudent = uid;
+    session.ip = ipAddress;
+    session.sessionActive = false; // Disable session after one scan
+    await session.save();
 
     const formattedTime = new Date().toLocaleString("en-US", {
       timeZone: "Asia/Karachi",
@@ -169,7 +178,7 @@ const scanStudentByUid = async (req, res) => {
 const getAllVerifierLogs = async (req, res) => {
   try {
     const verifiers = await Verifier.find()
-      .select("email ip lastLogin lastScan lastScannedStudent createdAt -_id")
+      .select("email ip lastLogin lastScan lastScannedStudent sessionActive createdAt -_id")
       .sort({ createdAt: -1 });
 
     const formatted = verifiers.map(v => {
@@ -193,7 +202,7 @@ const getAllVerifierLogs = async (req, res) => {
         lastLogin: formatDate(v.lastLogin),
         lastScan: formatDate(v.lastScan),
         scannedStudentUID: v.lastScannedStudent || "N/A",
-        scanTime: formatDate(v.createdAt),
+        sessionActive: v.sessionActive ? "Active" : "Closed",
       };
     });
 
@@ -207,6 +216,9 @@ const getAllVerifierLogs = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// 🔹 Exports
+// ─────────────────────────────────────────────
 module.exports = {
   sendVerifierOtp,
   verifyVerifierOtp,
