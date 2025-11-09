@@ -115,12 +115,13 @@ const scanStudentByUid = async (req, res) => {
     const verifier = await Verifier.findOne({ email }).sort({ createdAt: -1 });
     if (!verifier) return res.status(404).json({ message: "Please login first." });
 
-    // ✅ Prevent multiple scans in same session
-    if (verifier.lastScannedStudent) {
-      return res.status(400).json({
-        message: "Scan limit reached for this session. Please log out and log in again to continue scanning.",
-      });
-    }
+  // ✅ Prevent multiple scans in same session
+if (verifier.lastScannedStudent && verifier.lastScannedStudent.uid) {
+  return res.status(400).json({
+    message: "Scan limit reached for this session. Please log out and log in again to continue scanning.",
+  });
+}
+
 
     const student = await Student.findOne({ uid });
     if (!student) return res.status(404).json({ message: "Student not registered" });
