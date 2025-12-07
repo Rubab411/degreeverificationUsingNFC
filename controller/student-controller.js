@@ -1,6 +1,6 @@
-const Student = require("../models/student_models");
-const QRCode = require("qrcode");
-const SibApiV3Sdk = require("sib-api-v3-sdk");
+import Student from "../models/student_models.js";
+import QRCode from "qrcode";
+import SibApiV3Sdk from "sib-api-v3-sdk";
 
 // 🔹 Initialize Brevo SDK
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
@@ -9,7 +9,7 @@ apiKey.apiKey = process.env.BREVO_API_KEY;
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 // ✅ Get all students
-const getStudents = async (req, res, next) => {
+export const getStudents = async (req, res, next) => {
   try {
     const students = await Student.find();
     res.status(200).json({ students });
@@ -18,52 +18,28 @@ const getStudents = async (req, res, next) => {
   }
 };
 
-// ✅ Create new student (now only saves UID)
+// ✅ Create student
 export const createStudent = async (req, res) => {
   try {
-    const allowed = {
-      Name: req.body.Name,
-      fatherName: req.body.fatherName,
-      dob: req.body.dob,
-      gender: req.body.gender,
-
-      email: req.body.email,
-      phone: req.body.phone,
-
-      roll: req.body.roll,
-      department: req.body.department,
-      program: req.body.program,
-      batch: req.body.batch,
-      campus: req.body.campus,
-      startYear: req.body.startYear,
-      currentSemester: req.body.currentSemester,
-      cgpa: req.body.cgpa,
-      academic: req.body.academic,
-
-      documents: req.body.documents,
-    };
-
+    const allowed = { ...req.body };
     const student = await Student.create(allowed);
     res.status(201).json(student);
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-
-// ✅ Bind NFC Chip (only saves UID — no popup link)
-const bindNfcChip = async (req, res, next) => {
+// ✅ Bind NFC Chip
+export const bindNfcChip = async (req, res, next) => {
   try {
     const { roll, nfcUID } = req.body;
-    if (!roll || !nfcUID) {
-      return res.status(400).json({ msg: "Roll number and NFC UID are required" });
-    }
+
+    if (!roll || !nfcUID)
+      return res.status(400).json({ msg: "Roll and NFC UID required" });
 
     const student = await Student.findOne({ roll });
     if (!student) return res.status(404).json({ msg: "Student not found" });
 
-    // 🔒 Only store UID (no "nfcverify://verify/")
     const verifyURL = `nfcverify://verify/${student.uid}`;
 
     student.nfcUID = nfcUID;
@@ -71,70 +47,43 @@ const bindNfcChip = async (req, res, next) => {
 
     await student.save();
 
-    res.status(200).json({
-      msg: "✅ NFC chip bound successfully",
-      student,
-    });
+    res.status(200).json({ msg: "NFC bound", student });
   } catch (error) {
-    console.error("❌ bindNfcChip error:", error);
     next(error);
   }
 };
 
-// ✅ Update student
+// ✅ Update
 export const updateStudent = async (req, res) => {
   try {
-    const allowed = {
-      Name: req.body.Name,
-      fatherName: req.body.fatherName,
-      dob: req.body.dob,
-      gender: req.body.gender,
+    const updated = await Student.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
 
-      email: req.body.email,
-      phone: req.body.phone,
-
-      roll: req.body.roll,
-      department: req.body.department,
-      program: req.body.program,
-      batch: req.body.batch,
-      campus: req.body.campus,
-      startYear: req.body.startYear,
-      currentSemester: req.body.currentSemester,
-      cgpa: req.body.cgpa,
-      academic: req.body.academic,
-
-      documents: req.body.documents,
-    };
-
-    const updated = await Student.findByIdAndUpdate(req.params.id, allowed, { new: true });
     res.json(updated);
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-
-// ✅ Delete student
-const deleteStudent = async (req, res, next) => {
+// ✅ Delete
+export const deleteStudent = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const deletedStudent = await Student.findByIdAndDelete(id);
-    if (!deletedStudent) {
-      return res.status(404).json({ msg: "Student not found" });
-    }
-    res.status(200).json({ msg: "Student deleted successfully" });
-  } catch (error) {
-    next(error);
+    await Student.findByIdAndDelete(req.params.id);
+    res.json({ msg: "Student deleted" });
+  } catch (err) {
+    next(err);
   }
 };
 
-// ✅ Send OTP via Brevo API
-const sendOtp = async (req, res) => {
+// ✅ Send OTP
+export const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
     const student = await Student.findOne({ email });
-    if (!student) return res.status(404).json({ message: "Email not found in records" });
+    if (!student) return res.status(404).json({ message: "Email not found" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
@@ -147,31 +96,26 @@ const sendOtp = async (req, res) => {
     sendSmtpEmail.sender = { email: "verifiazapp@gmail.com", name: "Verifiaz" };
     sendSmtpEmail.to = [{ email }];
     sendSmtpEmail.subject = "Student Login OTP";
-    sendSmtpEmail.htmlContent = `
-      <p>Dear Student,</p>
-      <p>Your OTP for login is: <strong>${otp}</strong></p>
-      <p>This OTP will expire in 5 minutes.</p>
-      <p>Regards,<br>NFC Verification System</p>
-    `;
+    sendSmtpEmail.htmlContent = `<p>Your OTP: <strong>${otp}</strong></p>`;
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    res.status(200).json({ message: "OTP sent successfully via Brevo API" });
+    res.json({ message: "OTP sent" });
   } catch (err) {
-    console.error("❌ OTP Error:", err.response?.body || err.message);
-    res.status(500).json({ message: "Error sending OTP" });
+    res.status(500).json({ message: "OTP error" });
   }
 };
 
 // ✅ Verify OTP
-const verifyOtp = async (req, res) => {
+export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
     const student = await Student.findOne({ email });
 
     if (!student) return res.status(404).json({ message: "Student not found" });
     if (student.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
-    if (student.otpExpiry < new Date()) return res.status(400).json({ message: "OTP expired" });
+    if (student.otpExpiry < new Date())
+      return res.status(400).json({ message: "OTP expired" });
 
     student.otp = null;
     student.otpExpiry = null;
@@ -184,21 +128,9 @@ const verifyOtp = async (req, res) => {
         roll: student.roll,
         program: student.program,
         degreeStatus: student.degreeStatus,
-        degreeTitle: student.degreeTitle,
       },
     });
   } catch (err) {
-    console.error("OTP Verify Error:", err);
-    res.status(500).json({ message: "Error verifying OTP" });
+    res.status(500).json({ message: "Error" });
   }
-};
-
-module.exports = {
-  getStudents,
-  createStudent,
-  bindNfcChip,
-  updateStudent,
-  deleteStudent,
-  sendOtp,
-  verifyOtp,
 };
