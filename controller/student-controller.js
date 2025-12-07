@@ -19,34 +19,38 @@ const getStudents = async (req, res, next) => {
 };
 
 // ✅ Create new student (now only saves UID)
-const createStudent = async (req, res, next) => {
+export const createStudent = async (req, res) => {
   try {
-    const studentExist = await Student.findOne({ roll: req.body.roll });
-    if (studentExist) {
-      return res.status(400).json({ msg: "Student with this roll number already exists" });
-    }
+    const allowed = {
+      Name: req.body.Name,
+      fatherName: req.body.fatherName,
+      dob: req.body.dob,
+      gender: req.body.gender,
 
-    const student = await Student.create(req.body);
+      email: req.body.email,
+      phone: req.body.phone,
 
-   
-   const verifyURL = `nfcverify://verify/${student.uid}`;
+      roll: req.body.roll,
+      department: req.body.department,
+      program: req.body.program,
+      batch: req.body.batch,
+      campus: req.body.campus,
+      startYear: req.body.startYear,
+      currentSemester: req.body.currentSemester,
+      cgpa: req.body.cgpa,
+      academic: req.body.academic,
 
-    student.verifyURL = verifyURL;
-    await student.save();
+      documents: req.body.documents,
+    };
 
-    // Optional QR (still works fine)
-    const qrImage = await QRCode.toDataURL(verifyURL);
+    const student = await Student.create(allowed);
+    res.status(201).json(student);
 
-    res.status(201).json({
-      msg: "Student added successfully",
-      student,
-      verifyURL,
-      qrImage,
-    });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
+
 
 // ✅ Bind NFC Chip (only saves UID — no popup link)
 const bindNfcChip = async (req, res, next) => {
@@ -78,18 +82,38 @@ const bindNfcChip = async (req, res, next) => {
 };
 
 // ✅ Update student
-const updateStudent = async (req, res, next) => {
+export const updateStudent = async (req, res) => {
   try {
-    const { id } = req.params;
-    const updatedStudent = await Student.findByIdAndUpdate(id, req.body, { new: true });
-    if (!updatedStudent) {
-      return res.status(404).json({ msg: "Student not found" });
-    }
-    res.status(200).json({ msg: "Student updated successfully!", student: updatedStudent });
-  } catch (error) {
-    next(error);
+    const allowed = {
+      Name: req.body.Name,
+      fatherName: req.body.fatherName,
+      dob: req.body.dob,
+      gender: req.body.gender,
+
+      email: req.body.email,
+      phone: req.body.phone,
+
+      roll: req.body.roll,
+      department: req.body.department,
+      program: req.body.program,
+      batch: req.body.batch,
+      campus: req.body.campus,
+      startYear: req.body.startYear,
+      currentSemester: req.body.currentSemester,
+      cgpa: req.body.cgpa,
+      academic: req.body.academic,
+
+      documents: req.body.documents,
+    };
+
+    const updated = await Student.findByIdAndUpdate(req.params.id, allowed, { new: true });
+    res.json(updated);
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
+
 
 // ✅ Delete student
 const deleteStudent = async (req, res, next) => {

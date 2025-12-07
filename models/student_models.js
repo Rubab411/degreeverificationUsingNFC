@@ -1,37 +1,62 @@
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid"); // UUID v8 compatible
+
+const subjectSchema = new mongoose.Schema({
+  name: String,
+  credit: Number,
+  marks: Number,
+  grade: String,
+  gp: Number,
+});
+
+const semesterSchema = new mongoose.Schema({
+  semester: Number,
+  subjects: [subjectSchema],
+  gpa: Number,
+});
+
+const documentsSchema = new mongoose.Schema({
+  cnic: String,
+  matric: String,
+  inter: String,
+  image: String,
+});
 
 const studentSchema = new mongoose.Schema(
   {
-    Name: { type: String, required: true },
-    fatherName: { type: String },
-    dob: { type: String },
-    gender: { type: String },
-    roll: { type: String, required: true, unique: true },
-    program: { type: String },
-    department: { type: String },
-    batch: { type: String },
-    campus: { type: String },
-    startYear: { type: String },
-    endYear: { type: String },
-    currentSemester: { type: String },
-    cgpa: { type: String },
-    uid: { type: String, default: uuidv4, unique: true }, // Auto UUID
-    nfcUID: { type: String, default: null }, // Actual chip UID
-    verifyURL: { type: String, default: null }, // For mobile verification
+    Name: String,
+    fatherName: String,
+    dob: String,
+    gender: String,
 
-    // 🟤 New fields for login system
-    email: { type: String, unique: true, sparse: true },
-    otp: { type: String, default: null },
-    otpExpiry: { type: Date, default: null },
+    email: String,
+    phone: String,
 
-    // 🟢 New fields for degree tracking
-    degreeStatus: {
-      type: String,
-      enum: ["Pending", "In Progress", "Generated"],
-      default: "Pending",
-    },
-    degreeGeneratedDate: { type: Date, default: null }, // optional
+    roll: String,
+    department: String,
+    program: String,
+    batch: String,
+    campus: String,
+    startYear: Number,
+    currentSemester: Number,
+    cgpa: Number,
+
+    academic: [semesterSchema],
+
+    documents: documentsSchema,
+
+    verifiedBy: { type: String, default: null },
+    verifiedAt: { type: String, default: null },
+
+    uid: String,
+    nfcUID: String,
+    verifyURL: String,
+
+    otp: String,
+    otpExpiry: Date,
+
+    degreeStatus: String,
+    degreeTitle: String,
+    degreeGeneratedDate: Date,
   },
   { timestamps: true }
 );
