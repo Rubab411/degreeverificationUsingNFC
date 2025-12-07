@@ -1,10 +1,12 @@
+import dotenv from "dotenv";
+dotenv.config();
 import mongoose from "mongoose";
 import Student from "../models/student_models.js";
 import { v4 as uuidv4 } from "uuid";
 
 mongoose
-  .connect("mongodb://127.0.0.1:27017/nfc_verification")
-  .then(() => console.log("MongoDB connected for seeding"))
+ .connect(process.env.MONGODB_URI)
+ .then(() => console.log("MongoDB connected for seeding"))
   .catch((err) => console.log(err));
 
 const SUBJECT_NAMES = [
