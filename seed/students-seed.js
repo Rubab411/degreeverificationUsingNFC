@@ -5,8 +5,8 @@ import Student from "../models/student_models.js";
 import { v4 as uuidv4 } from "uuid";
 
 mongoose
- .connect(process.env.MONGODB_URI)
- .then(() => console.log("MongoDB connected for seeding"))
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("MongoDB connected for seeding"))
   .catch((err) => console.log(err));
 
 const SUBJECT_NAMES = [
@@ -34,18 +34,23 @@ const marksToGrade = (marks) => {
   return { grade: "F", gp: 0.0 };
 };
 
+// GPA helper
 const computeGPA = (subjects) => {
-  let tc = 0,
-    tp = 0;
+  let totalCredits = 0;
+  let earnedPoints = 0;
+
   subjects.forEach((s) => {
-    tc += s.credit;
-    tp += s.credit * s.gp;
+    totalCredits += s.credit;
+    earnedPoints += s.credit * s.gp;
   });
-  return +(tp / tc).toFixed(2);
+
+  return +(earnedPoints / totalCredits).toFixed(2);
 };
 
+// Build academic record (8 semesters)
 const buildAcademic = () => {
   const semesters = [];
+
   for (let sem = 1; sem <= 8; sem++) {
     const subjects = [];
     for (let i = 0; i < 4; i++) {
@@ -53,18 +58,27 @@ const buildAcademic = () => {
       const credit = 3;
       const marks = rand(60, 95);
       const { grade, gp } = marksToGrade(marks);
+
       subjects.push({ name, credit, marks, grade, gp });
     }
-    semesters.push({ semester: sem, subjects, gpa: computeGPA(subjects) });
+
+    semesters.push({
+      semester: sem,
+      subjects,
+      gpa: computeGPA(subjects),
+    });
   }
+
   return semesters;
 };
 
+// Student creator
 const createStudent = (i) => {
   const academic = buildAcademic();
-  const cgpa = computeGPA(
-    academic.flatMap((s) => s.subjects)
-  );
+
+  // 🟢 CGPA CALCULATION FIXED
+  const allSubjects = academic.flatMap((s) => s.subjects);
+  const cgpa = computeGPA(allSubjects);
 
   return {
     Name: `Student ${i + 1}`,
@@ -84,6 +98,7 @@ const createStudent = (i) => {
     uid: uuidv4(),
     otp: null,
     otpExpiry: null,
+
     documents: {
       cnic: `/uploads/cnic${i}.png`,
       matric: `/uploads/matric${i}.pdf`,
@@ -93,12 +108,14 @@ const createStudent = (i) => {
   };
 };
 
+// Seeder running
 const seed = async () => {
   await Student.deleteMany();
   await Student.insertMany(
     Array.from({ length: 20 }, (_, i) => createStudent(i))
   );
-  console.log("20 Dummy Students Inserted");
+
+  console.log("20 Dummy Students Inserted Successfully");
   mongoose.connection.close();
 };
 
