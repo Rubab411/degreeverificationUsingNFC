@@ -9,9 +9,9 @@ mongoose
   .then(() => console.log("MongoDB connected for seeding"))
   .catch((err) => console.log(err));
 
-// -----------------------------------------
-// 🔹 Subjects
-// -----------------------------------------
+// ------------------------------
+// SUBJECTS
+// ------------------------------
 const SUBJECT_NAMES = [
   "Programming Fundamentals",
   "OOP",
@@ -20,20 +20,22 @@ const SUBJECT_NAMES = [
   "OS",
   "AI",
   "ML",
-  "Web Engineering",
+  "Web Engineering"
 ];
 
-// -----------------------------------------
-// 🔹 Dynamic Programs & Departments
-// -----------------------------------------
+// ------------------------------
+// DYNAMIC PROGRAMS + DEPARTMENTS
+// ------------------------------
 const PROGRAMS = ["BSCS", "BSIT", "BSAI"];
 const DEPARTMENTS = [
   "Computer Science",
   "Information Technology",
-  "Artificial Intelligence",
+  "Artificial Intelligence"
 ];
 
-// -----------------------------------------
+const BATCHES = ["2021", "2022", "2023"];
+const CAMPUSES = ["Campus2"];
+
 const rand = (min, max) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -48,19 +50,16 @@ const marksToGrade = (marks) => {
   return { grade: "F", gp: 0.0 };
 };
 
-// -----------------------------------------
-// 🔹 GPA helper
-// -----------------------------------------
 const computeGPA = (subjects) => {
   let totalCredits = 0;
-  let earnedPoints = 0;
+  let totalPoints = 0;
 
   subjects.forEach((s) => {
     totalCredits += s.credit;
-    earnedPoints += s.credit * s.gp;
+    totalPoints += s.credit * s.gp;
   });
 
-  return +(earnedPoints / totalCredits).toFixed(2);
+  return +(totalPoints / totalCredits).toFixed(2);
 };
 
 // -----------------------------------------
@@ -71,8 +70,9 @@ const buildAcademic = () => {
 
   for (let sem = 1; sem <= 8; sem++) {
     const subjects = [];
-    for (let i = 0; i < 4; i++) {
-      const name = SUBJECT_NAMES[(sem + i) % SUBJECT_NAMES.length];
+
+    for (let j = 0; j < 4; j++) {
+      const name = SUBJECT_NAMES[(sem + j) % SUBJECT_NAMES.length];
       const credit = 3;
       const marks = rand(60, 95);
       const { grade, gp } = marksToGrade(marks);
@@ -80,71 +80,76 @@ const buildAcademic = () => {
       subjects.push({ name, credit, marks, grade, gp });
     }
 
-    semesters.push({
-      semester: sem,
-      subjects,
-      gpa: computeGPA(subjects),
-    });
+    const gpa = computeGPA(subjects);
+    semesters.push({ semester: sem, subjects, gpa });
   }
 
   return semesters;
 };
 
 // -----------------------------------------
-// 🔹 Create dynamic student
+// 🔹 CREATE STUDENT
 // -----------------------------------------
 const createStudent = (i) => {
-  const academic = buildAcademic();
-  const allSubjects = academic.flatMap((s) => s.subjects);
-  const cgpa = computeGPA(allSubjects);
-
-  // Dynamic program & department
   const program = PROGRAMS[i % PROGRAMS.length];
   const department = DEPARTMENTS[i % DEPARTMENTS.length];
+  const batch = BATCHES[i % BATCHES.length];
+  const campus = CAMPUSES[0];
 
-  // Dynamic roll number like:
-  // BSIT-101, BSAI-102, BSCS-103...
-  const roll = `${program}-${100 + i}`;
+  const academic = buildAcademic();
+
+  // Compute CGPA
+  let allSubs = academic.flatMap((s) => s.subjects);
+  const cgpa = computeGPA(allSubs);
 
   return {
+    _id: uuidv4(),
+    roll: `${program}-${100 + i + 1}`,
     Name: `Student ${i + 1}`,
     fatherName: `Father ${i + 1}`,
-    dob: "2002-02-01",
-    gender: i % 2 ? "Male" : "Female",
+    dob: `200${rand(0, 4)}-0${rand(1, 9)}-0${rand(1, 9)}`,
+    gender: rand(0, 1) ? "Male" : "Female",
     email: `student${i + 1}@example.com`,
-    roll,
-    program,
+    phone: `0300${rand(1000000, 9999999)}`,
     department,
-    batch: "2021",
-    campus: "Campus2",
-    startYear: 2021,
+    program,
+    batch,
+    campus,
+    startYear: batch,
     currentSemester: 8,
     cgpa,
     academic,
-    uid: uuidv4(),
-    otp: null,
-    otpExpiry: null,
-
     documents: {
-      cnic: `/uploads/cnic${i}.png`,
-      matric: `/uploads/matric${i}.pdf`,
-      inter: `/uploads/inter${i}.pdf`,
-      image: `/uploads/profile${i}.jpg`,
+      cnic: `/uploads/cnic${i + 1}.png`,
+      matric: `/uploads/matric${i + 1}.pdf`,
+      inter: `/uploads/inter${i + 1}.pdf`,
+      image: `/uploads/profile${i + 1}.jpg`,
     },
+    verifiedBy: null,
+    verifiedAt: null,
   };
 };
 
 // -----------------------------------------
-// 🔹 Seeder Run
+// 🔹 SEED DATA
 // -----------------------------------------
-const seed = async () => {
-  await Student.deleteMany();
-  await Student.insertMany(
-    Array.from({ length: 20 }, (_, i) => createStudent(i))
-  );
+const seedData = async () => {
+  try {
+    await Student.deleteMany({});
+    
+    const students = [];
+    for (let i = 0; i < 45; i++) {  
+      // 45 students = 15 BSCS + 15 BSIT + 15 BSAI
+      students.push(createStudent(i));
+    }
 
-  console.log("20 Dummy Students Inserted Successfully with Dynamic Program & Departments");
-  mongoose.connection.close();
+    await Student.insertMany(students);
+    console.log("Students seeded successfully!");
+    process.exit();
+  } catch (err) {
+    console.log(err);
+    process.exit();
+  }
 };
 
-seed();
+seedData();
