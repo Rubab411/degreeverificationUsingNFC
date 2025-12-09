@@ -9,6 +9,9 @@ mongoose
   .then(() => console.log("MongoDB connected for seeding"))
   .catch((err) => console.log(err));
 
+// -----------------------------------------
+// 🔹 Subjects
+// -----------------------------------------
 const SUBJECT_NAMES = [
   "Programming Fundamentals",
   "OOP",
@@ -20,6 +23,17 @@ const SUBJECT_NAMES = [
   "Web Engineering",
 ];
 
+// -----------------------------------------
+// 🔹 Dynamic Programs & Departments
+// -----------------------------------------
+const PROGRAMS = ["BSCS", "BSIT", "BSAI"];
+const DEPARTMENTS = [
+  "Computer Science",
+  "Information Technology",
+  "Artificial Intelligence",
+];
+
+// -----------------------------------------
 const rand = (min, max) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -34,7 +48,9 @@ const marksToGrade = (marks) => {
   return { grade: "F", gp: 0.0 };
 };
 
-// GPA helper
+// -----------------------------------------
+// 🔹 GPA helper
+// -----------------------------------------
 const computeGPA = (subjects) => {
   let totalCredits = 0;
   let earnedPoints = 0;
@@ -47,7 +63,9 @@ const computeGPA = (subjects) => {
   return +(earnedPoints / totalCredits).toFixed(2);
 };
 
-// Build academic record (8 semesters)
+// -----------------------------------------
+// 🔹 Build academic record (8 semesters)
+// -----------------------------------------
 const buildAcademic = () => {
   const semesters = [];
 
@@ -72,13 +90,21 @@ const buildAcademic = () => {
   return semesters;
 };
 
-// Student creator
+// -----------------------------------------
+// 🔹 Create dynamic student
+// -----------------------------------------
 const createStudent = (i) => {
   const academic = buildAcademic();
-
-  // 🟢 CGPA CALCULATION FIXED
   const allSubjects = academic.flatMap((s) => s.subjects);
   const cgpa = computeGPA(allSubjects);
+
+  // Dynamic program & department
+  const program = PROGRAMS[i % PROGRAMS.length];
+  const department = DEPARTMENTS[i % DEPARTMENTS.length];
+
+  // Dynamic roll number like:
+  // BSIT-101, BSAI-102, BSCS-103...
+  const roll = `${program}-${100 + i}`;
 
   return {
     Name: `Student ${i + 1}`,
@@ -86,9 +112,9 @@ const createStudent = (i) => {
     dob: "2002-02-01",
     gender: i % 2 ? "Male" : "Female",
     email: `student${i + 1}@example.com`,
-    roll: `BSCS-${100 + i}`,
-    program: "BSCS",
-    department: "Computer Science",
+    roll,
+    program,
+    department,
     batch: "2021",
     campus: "Campus2",
     startYear: 2021,
@@ -108,14 +134,16 @@ const createStudent = (i) => {
   };
 };
 
-// Seeder running
+// -----------------------------------------
+// 🔹 Seeder Run
+// -----------------------------------------
 const seed = async () => {
   await Student.deleteMany();
   await Student.insertMany(
     Array.from({ length: 20 }, (_, i) => createStudent(i))
   );
 
-  console.log("20 Dummy Students Inserted Successfully");
+  console.log("20 Dummy Students Inserted Successfully with Dynamic Program & Departments");
   mongoose.connection.close();
 };
 
