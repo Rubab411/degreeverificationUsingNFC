@@ -9,9 +9,7 @@ mongoose
   .then(() => console.log("MongoDB connected for seeding"))
   .catch((err) => console.log(err));
 
-// ----------------------------------------------------
-// CONSTANTS
-// ----------------------------------------------------
+// ----------------------------- CONSTANTS -----------------------------
 
 const SUBJECT_NAMES = [
   "Programming Fundamentals",
@@ -35,9 +33,7 @@ const DEPARTMENTS = {
 const BATCHES = ["2021", "2022", "2023"];
 const CAMPUSES = ["Campus2"];
 
-// --------------------------------------------------
-// HELPERS
-// --------------------------------------------------
+// ----------------------------- HELPERS -----------------------------
 
 const rand = (min, max) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
@@ -65,7 +61,6 @@ const computeGPA = (subjects) => {
   return +(totalPoints / totalCredits).toFixed(2);
 };
 
-// Generate 8 semesters
 const buildAcademic = () => {
   const semesters = [];
 
@@ -87,12 +82,13 @@ const buildAcademic = () => {
   return semesters;
 };
 
-// ---------------------------------------------------------
-// CREATE STUDENT (Perfect Rotation of Program + Department)
-// ---------------------------------------------------------
+// ----------------------- CREATE STUDENT FIXED -----------------------
 
 const createStudent = (i) => {
-  const program = PROGRAMS[i % PROGRAMS.length];
+  // PERFECT rotation
+  const programIndex = i % PROGRAMS.length; // 0,1,2,0,1,2…
+  const program = PROGRAMS[programIndex];
+
   const department = DEPARTMENTS[program];
   const batch = BATCHES[i % BATCHES.length];
   const campus = CAMPUSES[0];
@@ -133,13 +129,11 @@ const createStudent = (i) => {
   };
 };
 
-// ---------------------------------------------------------
-// SEED FUNCTION
-// ---------------------------------------------------------
+// ---------------------------- SEEDING -----------------------------
 
 const seedData = async () => {
   try {
-    await Student.deleteMany({});
+    await Student.deleteMany({}); // CLEAR old students
 
     const students = [];
 
@@ -148,7 +142,7 @@ const seedData = async () => {
     }
 
     await Student.insertMany(students);
-    console.log("Students seeded successfully!");
+    console.log("Students seeded SUCCESSFULLY!");
 
     process.exit();
   } catch (err) {
