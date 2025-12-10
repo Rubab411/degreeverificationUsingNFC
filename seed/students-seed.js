@@ -9,9 +9,10 @@ mongoose
   .then(() => console.log("MongoDB connected for seeding"))
   .catch((err) => console.log(err));
 
-// ------------------------------
-// SUBJECTS
-// ------------------------------
+// ----------------------------------------------------
+// CONSTANTS
+// ----------------------------------------------------
+
 const SUBJECT_NAMES = [
   "Programming Fundamentals",
   "OOP",
@@ -20,21 +21,23 @@ const SUBJECT_NAMES = [
   "OS",
   "AI",
   "ML",
-  "Web Engineering"
+  "Web Engineering",
 ];
 
-// ------------------------------
-// DYNAMIC PROGRAMS + DEPARTMENTS
-// ------------------------------
 const PROGRAMS = ["BSCS", "BSIT", "BSAI"];
-const DEPARTMENTS = [
-  "Computer Science",
-  "Information Technology",
-  "Artificial Intelligence"
-];
+
+const DEPARTMENTS = {
+  BSCS: "Computer Science",
+  BSIT: "Information Technology",
+  BSAI: "Artificial Intelligence",
+};
 
 const BATCHES = ["2021", "2022", "2023"];
 const CAMPUSES = ["Campus2"];
+
+// --------------------------------------------------
+// HELPERS
+// --------------------------------------------------
 
 const rand = (min, max) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
@@ -62,9 +65,7 @@ const computeGPA = (subjects) => {
   return +(totalPoints / totalCredits).toFixed(2);
 };
 
-// -----------------------------------------
-// 🔹 Build academic record (8 semesters)
-// -----------------------------------------
+// Generate 8 semesters
 const buildAcademic = () => {
   const semesters = [];
 
@@ -76,7 +77,6 @@ const buildAcademic = () => {
       const credit = 3;
       const marks = rand(60, 95);
       const { grade, gp } = marksToGrade(marks);
-
       subjects.push({ name, credit, marks, grade, gp });
     }
 
@@ -87,18 +87,17 @@ const buildAcademic = () => {
   return semesters;
 };
 
-// -----------------------------------------
-// 🔹 CREATE STUDENT
-// -----------------------------------------
+// ---------------------------------------------------------
+// CREATE STUDENT (Perfect Rotation of Program + Department)
+// ---------------------------------------------------------
+
 const createStudent = (i) => {
   const program = PROGRAMS[i % PROGRAMS.length];
-  const department = DEPARTMENTS[i % DEPARTMENTS.length];
+  const department = DEPARTMENTS[program];
   const batch = BATCHES[i % BATCHES.length];
   const campus = CAMPUSES[0];
 
   const academic = buildAcademic();
-
-  // Compute CGPA
   let allSubs = academic.flatMap((s) => s.subjects);
   const cgpa = computeGPA(allSubs);
 
@@ -111,40 +110,46 @@ const createStudent = (i) => {
     gender: rand(0, 1) ? "Male" : "Female",
     email: `student${i + 1}@example.com`,
     phone: `0300${rand(1000000, 9999999)}`,
-    department,
+
     program,
+    department,
     batch,
     campus,
     startYear: batch,
     currentSemester: 8,
+
     cgpa,
     academic,
+
     documents: {
       cnic: `/uploads/cnic${i + 1}.png`,
       matric: `/uploads/matric${i + 1}.pdf`,
       inter: `/uploads/inter${i + 1}.pdf`,
       image: `/uploads/profile${i + 1}.jpg`,
     },
+
     verifiedBy: null,
     verifiedAt: null,
   };
 };
 
-// -----------------------------------------
-// 🔹 SEED DATA
-// -----------------------------------------
+// ---------------------------------------------------------
+// SEED FUNCTION
+// ---------------------------------------------------------
+
 const seedData = async () => {
   try {
     await Student.deleteMany({});
-    
+
     const students = [];
-    for (let i = 0; i < 45; i++) {  
-      // 45 students = 15 BSCS + 15 BSIT + 15 BSAI
+
+    for (let i = 0; i < 45; i++) {
       students.push(createStudent(i));
     }
 
     await Student.insertMany(students);
     console.log("Students seeded successfully!");
+
     process.exit();
   } catch (err) {
     console.log(err);
