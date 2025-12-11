@@ -141,6 +141,15 @@ export const generateDegree = async (req, res) => {
     const verifyURL = `nfcverify://verify/${student.uid}`;
     const qrImage = await QRCode.toDataURL(verifyURL);
 
+<<<<<<< HEAD
+=======
+    // ✅ Save degree info in documents
+    student.documents = {
+      ...student.documents,
+      degree: qrImage // ya file URL agar file upload hai to wo
+    };
+
+>>>>>>> 231d017 (Re-init git repo)
     student.degreeTitle = degreeTitle;
     student.degreeIssued = true;
     student.degreeStatus = "Generated";
@@ -160,6 +169,7 @@ export const generateDegree = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // ✅ Mark transcript as generated
 export const markTranscriptGenerated = async (req, res) => {
   try {
@@ -167,6 +177,21 @@ export const markTranscriptGenerated = async (req, res) => {
     const student = await Student.findById(id);
     if (!student) return res.status(404).json({ message: "Student not found" });
 
+=======
+
+// ✅ Mark transcript as generated
+export const markTranscriptGenerated = async (req, res) => {
+  try {
+    const { id, transcriptFile } = req.body; // file URL
+    const student = await Student.findById(id);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    student.documents = {
+      ...student.documents,
+      transcript: transcriptFile
+    };
+
+>>>>>>> 231d017 (Re-init git repo)
     student.degreeStatus = "Generated";
     student.degreeGeneratedDate = new Date();
     await student.save();
@@ -176,3 +201,7 @@ export const markTranscriptGenerated = async (req, res) => {
     res.status(500).json({ message: "Error updating transcript status", error: err.message });
   }
 };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 231d017 (Re-init git repo)
