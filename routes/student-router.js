@@ -12,7 +12,7 @@ const {
   verifyOtp,
   generateDegree,
   markTranscriptGenerated
-} = require("../controller/student-controller");
+} = require("../controller/studentController");
 
 // 🟩 Get All Students
 router.get("/", getStudents);
