@@ -1,7 +1,8 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const QRCode = require("qrcode");
-const {
+import Student from "../models/student_models.js";
+import QRCode from "qrcode";
+import {
   getStudents,
   createStudent,
   bindNfcChip,
@@ -9,70 +10,29 @@ const {
   deleteStudent,
   sendOtp,
   verifyOtp,
-} = require("../controller/student-controller");
-const Student = require("../models/student_models");
+  generateDegree,
+  markTranscriptGenerated
+} from "../controller/student-controller.js";
 
-// --------------------------------------------------
-// 🟩 Get All Students (Admin Dashboard)
+// 🟩 Get All Students
 router.get("/", getStudents);
 
-// --------------------------------------------------
 // 🟩 Add New Student
 router.post("/", createStudent);
 
-// --------------------------------------------------
-// 🟩 Bind NFC chip to a specific student
+// 🟩 Bind NFC chip
 router.post("/bind-nfc", bindNfcChip);
 
-// --------------------------------------------------
-// 🟩 Update Student by ID (Edit Option)
+// 🟩 Update Student by ID
 router.put("/:id", updateStudent);
 
-// --------------------------------------------------
 // 🟩 Delete Student by ID
 router.delete("/:id", deleteStudent);
 
-// --------------------------------------------------
 // 🟩 Generate Degree
-// 🟩 Generate Degree (only UID stored, no URL)
-router.post("/generate-degree", async (req, res) => {
-  try {
-    const { uid, degreeTitle } = req.body;
-    if (!uid) return res.status(400).json({ message: "UID is missing" });
+router.post("/generate-degree", generateDegree);
 
-    const student = await Student.findOne({ uid });
-    if (!student) return res.status(404).json({ message: "Student not found" });
-
-   
-    const verifyURL = `nfcverify://verify/${student.uid}`;
-
-
-    // Optional QR (just UID text)
-    const qrImage = await QRCode.toDataURL(verifyURL);
-
-    student.degreeTitle = degreeTitle;
-    student.degreeIssued = true;
-    student.degreeStatus = "Generated";
-    student.degreeGeneratedDate = new Date();
-    student.verifyURL = verifyURL;
-
-    await student.save();
-
-    res.json({
-      message: "Degree generated successfully",
-      student,
-      qrImage,
-      verifyURL,
-    });
-  } catch (err) {
-    console.error("Error generating degree:", err);
-    res.status(500).json({ message: "Error generating degree" });
-  }
-});
-
-
-// --------------------------------------------------
-// 🟩 Verify Student by UID (supports both ?uid= and /verify/:uid)
+// 🟩 Verify Student by UID
 router.get("/verify/:uid", async (req, res) => {
   try {
     const uid = req.params.uid || req.query.uid;
@@ -85,12 +45,11 @@ router.get("/verify/:uid", async (req, res) => {
   }
 });
 
-
-// --------------------------------------------------
 // 🟩 Student Login via OTP
 router.post("/send-otp", sendOtp);
-
-// 🟩 Verify OTP and login student
 router.post("/verify-otp", verifyOtp);
 
-module.exports = router;
+// 🟩 Mark Transcript as Generated
+router.put("/transcript/:id", markTranscriptGenerated);
+
+export default router;

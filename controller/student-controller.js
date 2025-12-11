@@ -33,7 +33,6 @@ export const createStudent = async (req, res) => {
 export const bindNfcChip = async (req, res, next) => {
   try {
     const { roll, nfcUID } = req.body;
-
     if (!roll || !nfcUID)
       return res.status(400).json({ msg: "Roll and NFC UID required" });
 
@@ -41,10 +40,8 @@ export const bindNfcChip = async (req, res, next) => {
     if (!student) return res.status(404).json({ msg: "Student not found" });
 
     const verifyURL = `nfcverify://verify/${student.uid}`;
-
     student.nfcUID = nfcUID;
     student.verifyURL = verifyURL;
-
     await student.save();
 
     res.status(200).json({ msg: "NFC bound", student });
@@ -53,22 +50,19 @@ export const bindNfcChip = async (req, res, next) => {
   }
 };
 
-// ✅ Update
+// ✅ Update Student
 export const updateStudent = async (req, res) => {
   try {
-    const updated = await Student.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-
+    const updated = await Student.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// ✅ Delete
+// ✅ Delete Student
 export const deleteStudent = async (req, res, next) => {
   try {
     await Student.findByIdAndDelete(req.params.id);
@@ -132,5 +126,53 @@ export const verifyOtp = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: "Error" });
+  }
+};
+
+// ✅ Generate Degree
+export const generateDegree = async (req, res) => {
+  try {
+    const { uid, degreeTitle } = req.body;
+    if (!uid) return res.status(400).json({ message: "UID is missing" });
+
+    const student = await Student.findOne({ uid });
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const verifyURL = `nfcverify://verify/${student.uid}`;
+    const qrImage = await QRCode.toDataURL(verifyURL);
+
+    student.degreeTitle = degreeTitle;
+    student.degreeIssued = true;
+    student.degreeStatus = "Generated";
+    student.degreeGeneratedDate = new Date();
+    student.verifyURL = verifyURL;
+    await student.save();
+
+    res.json({
+      message: "Degree generated successfully",
+      student,
+      qrImage,
+      verifyURL,
+    });
+  } catch (err) {
+    console.error("Error generating degree:", err);
+    res.status(500).json({ message: "Error generating degree" });
+  }
+};
+
+// ✅ Mark transcript as generated
+export const markTranscriptGenerated = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const student = await Student.findById(id);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    student.degreeStatus = "Generated";
+    student.degreeGeneratedDate = new Date();
+    await student.save();
+
+    res.status(200).json({ message: "Transcript marked as generated", student });
+  } catch (err) {
+    res.status(500).json({ message: "Error updating transcript status", error: err.message });
   }
 };
