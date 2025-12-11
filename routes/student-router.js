@@ -1,8 +1,8 @@
-import express from "express";
+const express = require("express");
 const router = express.Router();
-import Student from "../models/student_models.js";
-import QRCode from "qrcode";
-import {
+const Student = require("../models/student_models");
+const QRCode = require("qrcode");
+const {
   getStudents,
   createStudent,
   bindNfcChip,
@@ -12,7 +12,7 @@ import {
   verifyOtp,
   generateDegree,
   markTranscriptGenerated
-} from "../controller/student-controller.js";
+} = require("../controller/student-controller");
 
 // 🟩 Get All Students
 router.get("/", getStudents);
@@ -52,4 +52,4 @@ router.post("/verify-otp", verifyOtp);
 // 🟩 Mark Transcript as Generated
 router.put("/transcript/:id", markTranscriptGenerated);
 
-export default router;
+module.exports = router;
