@@ -142,7 +142,7 @@ const seedData = async () => {
 
     mongoose.disconnect();
   } catch (err) {
-    console.error("SEED ERROR:", err);
+    console.error("SEE ERROR:", err);
     mongoose.disconnect();
   }
 };
