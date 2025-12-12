@@ -65,7 +65,7 @@ const sendVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Verify OTP (Login)
+// 🔹 Verify OTP (Create Login Session)
 // ─────────────────────────────────────────────
 const verifyVerifierOtp = async (req, res) => {
   try {
@@ -81,17 +81,18 @@ const verifyVerifierOtp = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ New login record
+    // ✅ New login session record
     const newLogin = await Verifier.create({
       email,
       ip: ipAddress,
       lastLogin: new Date(),
+      lastScannedStudent: null, // reset scan limit
     });
 
     res.status(200).json({
       message: "Verifier logged in successfully",
       data: {
-        sessionId: newLogin._id, // unique ID for current login session
+        sessionId: newLogin._id,   // ⭐ IMPORTANT: use this for scan verification
         email,
         ip: ipAddress,
         lastLogin: newLogin.lastLogin,
@@ -104,31 +105,34 @@ const verifyVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Scan Student (Only Once Per Login)
+// 🔹 Scan Student (One Scan Per Session)
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
-    const { uid, email } = req.body;
+    const { uid, sessionId } = req.body;
+
     if (!uid) return res.status(400).json({ message: "UID required" });
-    if (!email) return res.status(400).json({ message: "Verifier email required" });
+    if (!sessionId) return res.status(400).json({ message: "Session ID required" });
 
-    const verifier = await Verifier.findOne({ email }).sort({ createdAt: -1 });
-    if (!verifier) return res.status(404).json({ message: "Please login first." });
+    // ⭐ Fetch ONLY the current session (correct!)
+    const verifier = await Verifier.findById(sessionId);
 
-  // ✅ Prevent multiple scans in same session
-if (verifier.lastScannedStudent && verifier.lastScannedStudent.uid) {
-  return res.status(400).json({
-    message: "Scan limit reached for this session. Please log out and log in again to continue scanning.",
-  });
-}
+    if (!verifier)
+      return res.status(404).json({ message: "Invalid or expired session. Please login again." });
 
+    // ⭐ Prevent multiple scans
+    if (verifier.lastScannedStudent && verifier.lastScannedStudent.uid) {
+      return res.status(400).json({
+        message: "Scan limit reached for this session. Please log out and log in again.",
+      });
+    }
 
     const student = await Student.findOne({ uid });
     if (!student) return res.status(404).json({ message: "Student not registered" });
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Save scan info with UID + Roll
+    // ⭐ Save scan info
     verifier.lastScan = new Date();
     verifier.lastScannedStudent = {
       uid: student.uid,
@@ -150,7 +154,7 @@ if (verifier.lastScannedStudent && verifier.lastScannedStudent.uid) {
 
     res.status(200).json({
       message: "Student scanned successfully",
-      scannedBy: email,
+      scannedBy: verifier.email,
       ip: ipAddress,
       student: {
         name: student.Name || student.name || "N/A",
@@ -169,7 +173,7 @@ if (verifier.lastScannedStudent && verifier.lastScannedStudent.uid) {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Get All Logs (with roll instead of UID)
+// 🔹 Get All Logs
 // ─────────────────────────────────────────────
 const getAllVerifierLogs = async (req, res) => {
   try {
