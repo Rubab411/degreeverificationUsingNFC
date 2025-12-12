@@ -33,7 +33,7 @@ const sendVerifierOtp = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'Email required' });
 
     const otp = generateOtp();
-    const expiry = new Date(Date.now() + 5 * 60 * 1000);
+    const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
     const { ipAddress } = extractClientInfo(req);
 
     // Send OTP via Brevo
@@ -42,16 +42,19 @@ const sendVerifierOtp = async (req, res) => {
     sendSmtpEmail.to = [{ email }];
     sendSmtpEmail.subject = "Your Verifier OTP";
     sendSmtpEmail.htmlContent = `<p>Your OTP is <strong>${otp}</strong>. It expires in 5 minutes.</p>`;
-
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    await Verifier.create({
-      email,
-      otp,
-      otpExpiry: expiry,
-      ip: ipAddress,
-      lastLogin: new Date(),
-    });
+    // 🔹 Update if exists, otherwise create
+    const verifier = await Verifier.findOneAndUpdate(
+      { email },
+      {
+        otp,
+        otpExpiry: expiry,
+        ip: ipAddress,
+        lastLogin: new Date(),
+      },
+      { upsert: true, new: true }
+    );
 
     res.status(200).json({
       message: "OTP sent successfully",
@@ -86,13 +89,13 @@ const verifyVerifierOtp = async (req, res) => {
       email,
       ip: ipAddress,
       lastLogin: new Date(),
-      lastScannedStudent: null, // reset scan limit
+      lastScannedStudent: null, // reset scan info
     });
 
     res.status(200).json({
       message: "Verifier logged in successfully",
       data: {
-        sessionId: newLogin._id,   // ⭐ IMPORTANT: use this for scan verification
+        sessionId: newLogin._id,   // 🔑 use this for scan verification
         email,
         ip: ipAddress,
         lastLogin: newLogin.lastLogin,
@@ -114,13 +117,12 @@ const scanStudentByUid = async (req, res) => {
     if (!uid) return res.status(400).json({ message: "UID required" });
     if (!sessionId) return res.status(400).json({ message: "Session ID required" });
 
-    // ⭐ Fetch ONLY the current session (correct!)
+    // ✅ Fetch only current session
     const verifier = await Verifier.findById(sessionId);
-
     if (!verifier)
       return res.status(404).json({ message: "Invalid or expired session. Please login again." });
 
-    // ⭐ Prevent multiple scans
+    // Prevent multiple scans
     if (verifier.lastScannedStudent && verifier.lastScannedStudent.uid) {
       return res.status(400).json({
         message: "Scan limit reached for this session. Please log out and log in again.",
@@ -132,7 +134,7 @@ const scanStudentByUid = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ⭐ Save scan info
+    // Save scan info
     verifier.lastScan = new Date();
     verifier.lastScannedStudent = {
       uid: student.uid,
