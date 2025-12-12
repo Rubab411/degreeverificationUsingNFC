@@ -44,17 +44,23 @@ const sendVerifierOtp = async (req, res) => {
     sendSmtpEmail.htmlContent = `<p>Your OTP is <strong>${otp}</strong>. It expires in 5 minutes.</p>`;
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    // 🔹 Update if exists, otherwise create
-    const verifier = await Verifier.findOneAndUpdate(
-      { email },
-      {
+    // 🔹 Save OTP in backend
+    let verifier = await Verifier.findOne({ email });
+    if (verifier) {
+      verifier.otp = otp;
+      verifier.otpExpiry = expiry;
+      verifier.ip = ipAddress;
+      verifier.lastLogin = new Date();
+      await verifier.save();
+    } else {
+      verifier = await Verifier.create({
+        email,
         otp,
         otpExpiry: expiry,
         ip: ipAddress,
         lastLogin: new Date(),
-      },
-      { upsert: true, new: true }
-    );
+      });
+    }
 
     res.status(200).json({
       message: "OTP sent successfully",
@@ -68,7 +74,7 @@ const sendVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Verify OTP (Create Login Session)
+// 🔹 Verify OTP
 // ─────────────────────────────────────────────
 const verifyVerifierOtp = async (req, res) => {
   try {
@@ -76,26 +82,31 @@ const verifyVerifierOtp = async (req, res) => {
     if (!email || !otp)
       return res.status(400).json({ message: "Email and OTP required" });
 
-    const existing = await Verifier.findOne({ email }).sort({ createdAt: -1 });
-
-    if (!existing) return res.status(400).json({ message: "Please request OTP first" });
-    if (existing.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
-    if (existing.otpExpiry < new Date()) return res.status(400).json({ message: "OTP expired" });
+    const verifier = await Verifier.findOne({ email }).sort({ createdAt: -1 });
+    if (!verifier) return res.status(400).json({ message: "Please request OTP first" });
+    if (verifier.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
+    if (verifier.otpExpiry < new Date()) return res.status(400).json({ message: "OTP expired" });
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ New login session record
+    // ✅ Reset OTP after successful login
+    verifier.otp = null;
+    verifier.otpExpiry = null;
+    verifier.lastLogin = new Date();
+    await verifier.save();
+
+    // ✅ Create session record
     const newLogin = await Verifier.create({
       email,
       ip: ipAddress,
       lastLogin: new Date(),
-      lastScannedStudent: null, // reset scan info
+      lastScannedStudent: null,
     });
 
     res.status(200).json({
       message: "Verifier logged in successfully",
       data: {
-        sessionId: newLogin._id,   // 🔑 use this for scan verification
+        sessionId: newLogin._id,
         email,
         ip: ipAddress,
         lastLogin: newLogin.lastLogin,
@@ -108,7 +119,7 @@ const verifyVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Scan Student (One Scan Per Session)
+// 🔹 Scan Student
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
@@ -117,12 +128,10 @@ const scanStudentByUid = async (req, res) => {
     if (!uid) return res.status(400).json({ message: "UID required" });
     if (!sessionId) return res.status(400).json({ message: "Session ID required" });
 
-    // ✅ Fetch only current session
     const verifier = await Verifier.findById(sessionId);
     if (!verifier)
       return res.status(404).json({ message: "Invalid or expired session. Please login again." });
 
-    // Prevent multiple scans
     if (verifier.lastScannedStudent && verifier.lastScannedStudent.uid) {
       return res.status(400).json({
         message: "Scan limit reached for this session. Please log out and log in again.",
@@ -134,7 +143,6 @@ const scanStudentByUid = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // Save scan info
     verifier.lastScan = new Date();
     verifier.lastScannedStudent = {
       uid: student.uid,
