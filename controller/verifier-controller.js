@@ -21,7 +21,7 @@ const extractClientInfo = (req) => ({
 });
 
 // ─────────────────────────────────────────────
-// 🔹 SEND OTP (create OR update verifier)
+// 🔹 SEND OTP
 // ─────────────────────────────────────────────
 const sendVerifierOtp = async (req, res) => {
   try {
@@ -83,7 +83,7 @@ const verifyVerifierOtp = async (req, res) => {
     if (!verifier || !verifier.otp)
       return res.status(400).json({ message: "OTP not requested" });
 
-    const { ipAddress } = extractClientInfo(req);
+    const { ipAddress } = extractClientInfo(req); // ✅ fixed
 
     if (verifier.otp !== otp)
       return res.status(400).json({ message: "Invalid OTP" });
