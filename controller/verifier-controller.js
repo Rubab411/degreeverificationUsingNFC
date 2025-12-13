@@ -159,7 +159,7 @@ const scanStudentByUid = async (req, res) => {
 const getAllVerifierLogs = async (req, res) => {
   try {
     const verifiers = await Verifier.find()
-      .select("email ip lastLogin lastScan lastScannedStudent createdAt -_id")
+     
       .sort({ createdAt: -1 });
 
     res.status(200).json({
