@@ -1,16 +1,14 @@
-import Student from "../models/student_models.js";
-import QRCode from "qrcode";
-import SibApiV3Sdk from "sib-api-v3-sdk";
+const Student = require("../models/student_models");
+const QRCode = require("qrcode");
+const SibApiV3Sdk = require("sib-api-v3-sdk");
 
 // 🔹 Initialize Brevo SDK
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications["api-key"];
-apiKey.apiKey = process.env.BREVO_API_KEY;
+defaultClient.authentications["api-key"].apiKey = process.env.BREVO_API_KEY;
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
-
 // ✅ Get all students
-export const getStudents = async (req, res, next) => {
+const getStudents = async (req, res, next) => {
   try {
     const students = await Student.find();
     res.status(200).json({ students });
@@ -19,9 +17,8 @@ export const getStudents = async (req, res, next) => {
   }
 };
 
-
 // ✅ Create student
-export const createStudent = async (req, res) => {
+const createStudent = async (req, res) => {
   try {
     const allowed = { ...req.body };
     const student = await Student.create(allowed);
@@ -31,9 +28,8 @@ export const createStudent = async (req, res) => {
   }
 };
 
-
 // ✅ Bind NFC Chip
-export const bindNfcChip = async (req, res, next) => {
+const bindNfcChip = async (req, res, next) => {
   try {
     const { roll, nfcUID } = req.body;
     if (!roll || !nfcUID)
@@ -53,9 +49,8 @@ export const bindNfcChip = async (req, res, next) => {
   }
 };
 
-
 // ✅ Update Student
-export const updateStudent = async (req, res) => {
+const updateStudent = async (req, res) => {
   try {
     const updated = await Student.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -66,9 +61,8 @@ export const updateStudent = async (req, res) => {
   }
 };
 
-
 // ✅ Delete Student
-export const deleteStudent = async (req, res, next) => {
+const deleteStudent = async (req, res, next) => {
   try {
     await Student.findByIdAndDelete(req.params.id);
     res.json({ msg: "Student deleted" });
@@ -77,9 +71,8 @@ export const deleteStudent = async (req, res, next) => {
   }
 };
 
-
 // ✅ Send OTP
-export const sendOtp = async (req, res) => {
+const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
     const student = await Student.findOne({ email });
@@ -106,9 +99,8 @@ export const sendOtp = async (req, res) => {
   }
 };
 
-
 // ✅ Verify OTP
-export const verifyOtp = async (req, res) => {
+const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
     const student = await Student.findOne({ email });
@@ -137,9 +129,8 @@ export const verifyOtp = async (req, res) => {
   }
 };
 
-
 // ✅ Generate Degree
-export const generateDegree = async (req, res) => {
+const generateDegree = async (req, res) => {
   try {
     const { uid, degreeTitle } = req.body;
     if (!uid) return res.status(400).json({ message: "UID is missing" });
@@ -175,9 +166,8 @@ export const generateDegree = async (req, res) => {
   }
 };
 
-
-// ✅ Mark Transcript as Generated (FINAL FIXED FUNCTION)
-export const markTranscriptGenerated = async (req, res) => {
+// ✅ Mark Transcript as Generated
+const markTranscriptGenerated = async (req, res) => {
   try {
     const { id, transcriptFile } = req.body;
     const student = await Student.findById(id);
@@ -203,4 +193,16 @@ export const markTranscriptGenerated = async (req, res) => {
       error: err.message,
     });
   }
+};
+
+module.exports = {
+  getStudents,
+  createStudent,
+  bindNfcChip,
+  updateStudent,
+  deleteStudent,
+  sendOtp,
+  verifyOtp,
+  generateDegree,
+  markTranscriptGenerated,
 };

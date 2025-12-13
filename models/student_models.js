@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const subjectSchema = new mongoose.Schema({
   name: String,
@@ -61,4 +61,4 @@ const studentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Student", studentSchema);
+module.exports = mongoose.model("Student", studentSchema);
