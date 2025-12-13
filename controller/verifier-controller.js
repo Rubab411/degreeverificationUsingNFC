@@ -102,36 +102,43 @@ const verifyVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 SCAN STUDENT
+// 🔹 SCAN STUDENT (fixed: unlimited scans + detailed errors)
 // ─────────────────────────────────────────────
 const scanStudentByUid = async (req, res) => {
   try {
     const { uid, sessionId } = req.body;
-    if (!uid || !sessionId) return res.status(400).json({ message: "UID & sessionId required" });
+    if (!uid || !sessionId)
+      return res.status(400).json({ message: "UID & sessionId required" });
 
     const verifier = await Verifier.findById(sessionId);
-    if (!verifier) return res.status(401).json({ message: "Session expired" });
-
-    if (verifier.lastScannedStudent?.uid)
-      return res.status(400).json({ message: "Scan limit reached" });
+    if (!verifier)
+      return res.status(401).json({ message: "Session expired or invalid" });
 
     const student = await Student.findOne({ uid });
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student)
+      return res
+        .status(404)
+        .json({ message: `Student with UID '${uid}' not found` });
 
     const { ipAddress } = extractClientInfo(req);
 
+    // Update verifier scan info (no scan limit now)
     verifier.lastScan = new Date();
     verifier.lastScannedStudent = { uid: student.uid, roll: student.roll || "N/A" };
     verifier.ip = ipAddress;
     await verifier.save();
 
-    res.status(200).json({ message: "Student verified", student });
+    res.status(200).json({
+      message: `Student verified successfully: ${student.name || "N/A"}`,
+      student,
+    });
 
   } catch (err) {
     console.error("Scan Error:", err);
-    res.status(500).json({ message: "Scan failed" });
+    res.status(500).json({ message: `Scan failed: ${err.message || err}` });
   }
 };
+
 
 // ─────────────────────────────────────────────
 // 🔹 GET LOGS
