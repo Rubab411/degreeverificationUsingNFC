@@ -21,12 +21,13 @@ const extractClientInfo = (req) => ({
 });
 
 // ─────────────────────────────────────────────
-// 🔹 SEND OTP  (ALWAYS CREATE NEW RECORD)
+// 🔹 SEND OTP (create OR update verifier)
 // ─────────────────────────────────────────────
 const sendVerifierOtp = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email required" });
+    if (!email)
+      return res.status(400).json({ message: "Email required" });
 
     const otp = generateOtp();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
@@ -36,18 +37,28 @@ const sendVerifierOtp = async (req, res) => {
     await apiInstance.sendTransacEmail({
       sender: { email: "verifiazapp@gmail.com", name: "Verifier System" },
       to: [{ email }],
-      subject: "Your OTP",
+      subject: "Your Verifier OTP",
       htmlContent: `<h3>Your OTP: ${otp}</h3><p>Valid for 5 minutes</p>`,
     });
 
-    // ✅ ALWAYS create new verifier record
-    await Verifier.create({
-      email,
-      otp,
-      otpExpiry,
-      ip: ipAddress,
-      lastLogin: new Date(),
-    });
+    // 🔐 Save / Update OTP
+    let verifier = await Verifier.findOne({ email });
+
+    if (!verifier) {
+      verifier = await Verifier.create({
+        email,
+        otp,
+        otpExpiry,
+        ip: ipAddress,
+        lastLogin: new Date(),
+      });
+    } else {
+      verifier.otp = otp;
+      verifier.otpExpiry = otpExpiry;
+      verifier.ip = ipAddress;
+      verifier.lastLogin = new Date();
+      await verifier.save();
+    }
 
     res.status(200).json({ message: "OTP sent successfully" });
 
@@ -58,7 +69,7 @@ const sendVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 VERIFY OTP (GET LATEST RECORD)
+// 🔹 VERIFY OTP
 // ─────────────────────────────────────────────
 const verifyVerifierOtp = async (req, res) => {
   try {
@@ -66,12 +77,13 @@ const verifyVerifierOtp = async (req, res) => {
     if (!email || !otp)
       return res.status(400).json({ message: "Email & OTP required" });
 
-    // ✅ GET LATEST OTP RECORD
-    const verifier = await Verifier.findOne({ email })
-      .sort({ createdAt: -1 });
+    // 🔑 Always use latest record
+    const verifier = await Verifier.findOne({ email }).sort({ createdAt: -1 });
 
-    if (!verifier)
+    if (!verifier || !verifier.otp)
       return res.status(400).json({ message: "OTP not requested" });
+
+    const { ipAddress } = extractClientInfo(req);
 
     if (verifier.otp !== otp)
       return res.status(400).json({ message: "Invalid OTP" });
@@ -79,9 +91,7 @@ const verifyVerifierOtp = async (req, res) => {
     if (verifier.otpExpiry < new Date())
       return res.status(400).json({ message: "OTP expired" });
 
-    const { ipAddress } = extractClientInfo(req);
-
-    // ✅ Clear OTP but keep record (SESSION)
+    // ✅ Clear OTP and update lastLogin
     verifier.otp = null;
     verifier.otpExpiry = null;
     verifier.lastLogin = new Date();
@@ -109,7 +119,7 @@ const scanStudentByUid = async (req, res) => {
   try {
     const { uid, sessionId } = req.body;
     if (!uid || !sessionId)
-      return res.status(400).json({ message: "UID & Session required" });
+      return res.status(400).json({ message: "UID & sessionId required" });
 
     const verifier = await Verifier.findById(sessionId);
     if (!verifier)
@@ -144,7 +154,7 @@ const scanStudentByUid = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 GET ALL LOGS
+// 🔹 GET LOGS
 // ─────────────────────────────────────────────
 const getAllVerifierLogs = async (req, res) => {
   try {
@@ -156,6 +166,7 @@ const getAllVerifierLogs = async (req, res) => {
       count: verifiers.length,
       verifiers,
     });
+
   } catch (err) {
     console.error("Logs Error:", err);
     res.status(500).json({ message: "Error fetching logs" });
