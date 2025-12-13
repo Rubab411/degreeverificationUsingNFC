@@ -21,7 +21,7 @@ const extractClientInfo = (req) => ({
 });
 
 // ─────────────────────────────────────────────
-// 🔹 SEND OTP  (CREATE or UPDATE verifier)
+// 🔹 SEND OTP  (ALWAYS CREATE NEW RECORD)
 // ─────────────────────────────────────────────
 const sendVerifierOtp = async (req, res) => {
   try {
@@ -40,24 +40,14 @@ const sendVerifierOtp = async (req, res) => {
       htmlContent: `<h3>Your OTP: ${otp}</h3><p>Valid for 5 minutes</p>`,
     });
 
-    // 🔐 Save OTP in DB
-    let verifier = await Verifier.findOne({ email });
-
-    if (!verifier) {
-      verifier = await Verifier.create({
-        email,
-        otp,
-        otpExpiry,
-        ip: ipAddress,
-        lastLogin: new Date(),
-      });
-    } else {
-      verifier.otp = otp;
-      verifier.otpExpiry = otpExpiry;
-      verifier.ip = ipAddress;
-      verifier.lastLogin = new Date();
-      await verifier.save();
-    }
+    // ✅ ALWAYS create new verifier record
+    await Verifier.create({
+      email,
+      otp,
+      otpExpiry,
+      ip: ipAddress,
+      lastLogin: new Date(),
+    });
 
     res.status(200).json({ message: "OTP sent successfully" });
 
@@ -68,7 +58,7 @@ const sendVerifierOtp = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 VERIFY OTP
+// 🔹 VERIFY OTP (GET LATEST RECORD)
 // ─────────────────────────────────────────────
 const verifyVerifierOtp = async (req, res) => {
   try {
@@ -76,8 +66,12 @@ const verifyVerifierOtp = async (req, res) => {
     if (!email || !otp)
       return res.status(400).json({ message: "Email & OTP required" });
 
-    const verifier = await Verifier.findOne({ email });
-    if (!verifier) return res.status(400).json({ message: "OTP not requested" });
+    // ✅ GET LATEST OTP RECORD
+    const verifier = await Verifier.findOne({ email })
+      .sort({ createdAt: -1 });
+
+    if (!verifier)
+      return res.status(400).json({ message: "OTP not requested" });
 
     if (verifier.otp !== otp)
       return res.status(400).json({ message: "Invalid OTP" });
@@ -87,7 +81,7 @@ const verifyVerifierOtp = async (req, res) => {
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Clear OTP but keep record
+    // ✅ Clear OTP but keep record (SESSION)
     verifier.otp = null;
     verifier.otpExpiry = null;
     verifier.lastLogin = new Date();
@@ -128,6 +122,8 @@ const scanStudentByUid = async (req, res) => {
     if (!student)
       return res.status(404).json({ message: "Student not found" });
 
+    const { ipAddress } = extractClientInfo(req);
+
     verifier.lastScan = new Date();
     verifier.lastScannedStudent = {
       uid: student.uid,
@@ -135,17 +131,6 @@ const scanStudentByUid = async (req, res) => {
     };
     verifier.ip = ipAddress;
     await verifier.save();
-
-    const formattedTime = new Date().toLocaleString("en-US", {
-      timeZone: "Asia/Karachi",
-      hour12: true,
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
 
     res.status(200).json({
       message: "Student verified",
@@ -159,7 +144,7 @@ const scanStudentByUid = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// 🔹 Get All Logs
+// 🔹 GET ALL LOGS
 // ─────────────────────────────────────────────
 const getAllVerifierLogs = async (req, res) => {
   try {
@@ -167,38 +152,13 @@ const getAllVerifierLogs = async (req, res) => {
       .select("email ip lastLogin lastScan lastScannedStudent createdAt -_id")
       .sort({ createdAt: -1 });
 
-    const formatted = verifiers.map(v => {
-      const formatDate = (d) =>
-        d
-          ? new Date(d).toLocaleString("en-US", {
-              timeZone: "Asia/Karachi",
-              hour12: true,
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
-          : "N/A";
-
-      return {
-        email: v.email,
-        ip: v.ip || "N/A",
-        lastLogin: formatDate(v.lastLogin),
-        lastScan: formatDate(v.lastScan),
-        studentRoll: v.lastScannedStudent?.roll || "N/A",
-        createdAt: formatDate(v.createdAt),
-      };
-    });
-
     res.status(200).json({
-      count: formatted.length,
-      verifiers: formatted,
+      count: verifiers.length,
+      verifiers,
     });
   } catch (err) {
-    console.error("Error fetching verifier logs:", err);
-    res.status(500).json({ message: "Error fetching verifier logs" });
+    console.error("Logs Error:", err);
+    res.status(500).json({ message: "Error fetching logs" });
   }
 };
 
