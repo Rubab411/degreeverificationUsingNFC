@@ -44,7 +44,7 @@ const sendVerifierOtp = async (req, res) => {
     sendSmtpEmail.htmlContent = `<p>Your OTP is <strong>${otp}</strong>. It expires in 5 minutes.</p>`;
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    // 🔹 Save OTP in backend
+    // 🔹 Save OTP in backend (create or update)
     let verifier = await Verifier.findOne({ email });
     if (verifier) {
       verifier.otp = otp;
@@ -82,34 +82,26 @@ const verifyVerifierOtp = async (req, res) => {
     if (!email || !otp)
       return res.status(400).json({ message: "Email and OTP required" });
 
-    const verifier = await Verifier.findOne({ email }).sort({ createdAt: -1 });
+    const verifier = await Verifier.findOne({ email });
     if (!verifier) return res.status(400).json({ message: "Please request OTP first" });
     if (verifier.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
     if (verifier.otpExpiry < new Date()) return res.status(400).json({ message: "OTP expired" });
 
     const { ipAddress } = extractClientInfo(req);
 
-    // ✅ Reset OTP after successful login
+    // ✅ Reset OTP after successful login but keep the record
     verifier.otp = null;
     verifier.otpExpiry = null;
     verifier.lastLogin = new Date();
     await verifier.save();
 
-    // ✅ Create session record
-    const newLogin = await Verifier.create({
-      email,
-      ip: ipAddress,
-      lastLogin: new Date(),
-      lastScannedStudent: null,
-    });
-
     res.status(200).json({
       message: "Verifier logged in successfully",
       data: {
-        sessionId: newLogin._id,
+        sessionId: verifier._id, // existing record _id can be used as session
         email,
         ip: ipAddress,
-        lastLogin: newLogin.lastLogin,
+        lastLogin: verifier.lastLogin,
       },
     });
   } catch (err) {
