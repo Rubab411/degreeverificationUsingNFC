@@ -13,22 +13,15 @@ const {
   generateDegree,
   markTranscriptGenerated
 } = require("../controller/studentController");
+
+// 🔹 Test route for debugging / container check
 router.get("/test", (req, res) => {
-  console.log("Test route hit ✅");
+  console.log("Test route hit ✅"); // Railway logs me check
   res.send("Test route working ✅");
 });
 
-// 🟩 Get All Students - debug friendly
-router.get("/", async (req, res, next) => {
-  try {
-    const students = await Student.find();
-    console.log("Fetched students:", students); // Railway logs me check
-    res.json(students); // JSON response
-  } catch (err) {
-    console.error("Error fetching students:", err);
-    next(err);
-  }
-});
+// 🟩 Get All Students - using imported function
+router.get("/", getStudents);
 
 // 🟩 Add New Student
 router.post("/", createStudent);
