@@ -18,6 +18,9 @@ const corsOption = {
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"],
   credentials: true,
 };
+app.get("/", (req, res) => {
+  res.send("Backend is running ✅");
+});
 
 // ✅ Apply CORS before all routes
 app.use(cors(corsOption));
