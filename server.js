@@ -30,6 +30,9 @@ app.use("/", authRoute);
 app.use("/form", contactRoute);
 app.use("/api/students", studentRoutes);
 app.use("/api/verifier", verifierRoutes);
+app.use("/api/hec", require("./routes/hecRoutes"));
+app.use("/api/ibcc", require("./routes/ibccRoutes"));
+app.use("/api/mofa", require("./routes/mofaRoutes"));
 
 // ✅ Error Middleware should be last
 app.use(errorMiddleware);
