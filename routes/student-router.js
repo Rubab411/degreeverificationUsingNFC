@@ -13,6 +13,10 @@ const {
   generateDegree,
   markTranscriptGenerated
 } = require("../controller/studentController");
+router.get("/test", (req, res) => {
+  console.log("Test route hit ✅");
+  res.send("Test route working ✅");
+});
 
 // 🟩 Get All Students - debug friendly
 router.get("/", async (req, res, next) => {
