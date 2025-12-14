@@ -14,8 +14,17 @@ const {
   markTranscriptGenerated
 } = require("../controller/studentController");
 
-// 🟩 Get All Students
-router.get("/", getStudents);
+// 🟩 Get All Students - debug friendly
+router.get("/", async (req, res, next) => {
+  try {
+    const students = await Student.find();
+    console.log("Fetched students:", students); // Railway logs me check
+    res.json(students); // JSON response
+  } catch (err) {
+    console.error("Error fetching students:", err);
+    next(err);
+  }
+});
 
 // 🟩 Add New Student
 router.post("/", createStudent);
